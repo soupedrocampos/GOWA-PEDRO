@@ -1,0 +1,73 @@
+#1 [internal] load local bake definitions
+#1 reading from stdin 538B 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from golang.Dockerfile
+#2 transferring dockerfile: 746B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/alpine:3.23
+#3 DONE 0.7s
+
+#4 [internal] load metadata for docker.io/library/golang:1.25-alpine3.23
+#4 DONE 0.7s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 146B done
+#5 DONE 0.0s
+
+#6 [stage-1 1/4] FROM docker.io/library/alpine:3.23@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659
+#6 resolve docker.io/library/alpine:3.23@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659 0.0s done
+#6 DONE 0.0s
+
+#7 [builder 1/6] FROM docker.io/library/golang:1.25-alpine3.23@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa
+#7 resolve docker.io/library/golang:1.25-alpine3.23@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa 0.0s done
+#7 DONE 0.0s
+
+#8 [internal] load build context
+#8 transferring context: 11.73kB 0.0s done
+#8 DONE 0.0s
+
+#9 [builder 5/6] RUN go mod download
+#9 CACHED
+
+#10 [builder 2/6] RUN apk update && apk add --no-cache gcc musl-dev gcompat
+#10 CACHED
+
+#11 [builder 6/6] RUN go build -a -ldflags="-w -s" -o /app/whatsapp
+#11 CACHED
+
+#12 [builder 4/6] COPY ./src .
+#12 CACHED
+
+#13 [builder 3/6] WORKDIR /whatsapp
+#13 CACHED
+
+#14 [stage-1 3/4] WORKDIR /app
+#14 CACHED
+
+#15 [stage-1 2/4] RUN apk add --no-cache ffmpeg libwebp-tools tzdata
+#15 CACHED
+
+#16 [stage-1 4/4] COPY --from=builder /app/whatsapp /app/whatsapp
+#16 CACHED
+
+#17 exporting to image
+#17 exporting layers done
+#17 exporting manifest sha256:b3384ad213ae3cd6989bc695d5d21f4092ce6beadcac8cf7389cbc247aa405ce done
+#17 exporting config sha256:9771d67474140f0cf5d6fcfb108bc129bc232ca133c1a98dbb4f9dc0bd879161 done
+#17 exporting attestation manifest sha256:392ade5b331fd566f3b0162f875a2e4c71bf87464b7e9d66bc1b0884c623f97c 0.0s done
+#17 exporting manifest list sha256:45d5cab544144f3a52d2aac3c742502252e22499e7ee1bed27b8116a3d4b58cb
+#17 exporting manifest list sha256:45d5cab544144f3a52d2aac3c742502252e22499e7ee1bed27b8116a3d4b58cb done
+#17 naming to docker.io/library/go-whatsapp-web-multidevice-whatsapp_go:latest done
+#17 unpacking to docker.io/library/go-whatsapp-web-multidevice-whatsapp_go:latest done
+#17 DONE 0.1s
+
+#18 resolving provenance for metadata file
+#18 DONE 0.0s
+ whatsapp_go  Built
+ Container go-whatsapp-web-multidevice-whatsapp_go-1  Recreate
+ Container go-whatsapp-web-multidevice-whatsapp_go-1  Recreated
+ Container go-whatsapp-web-multidevice-whatsapp_go-1  Starting
+Error response from daemon: ports are not available: exposing port TCP 0.0.0.0:3000 -> 127.0.0.1:0: listen tcp 0.0.0.0:3000: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+
