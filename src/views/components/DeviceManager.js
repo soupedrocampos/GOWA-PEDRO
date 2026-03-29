@@ -13,7 +13,9 @@ export default {
             deviceIdInput: '',
             isCreatingDevice: false,
             deviceToDelete: { id: '', jid: '', state: '' },
-            isDeleting: false
+            isDeleting: false,
+            // webhookState: deviceId -> { url, enabled, saving, testing, testResult, testMessage, dirty }
+            webhookState: {},
         }
     },
     computed: {
@@ -34,17 +36,106 @@ export default {
                     const first = this.deviceList[0].id || this.deviceList[0].device;
                     this.setDeviceContext(first);
                 }
-                // Emit devices to parent for other components
                 this.$emit('devices-updated', this.deviceList);
+                this.deviceList.forEach(dev => this.loadWebhook(dev.id || dev.device));
             } catch (err) {
                 console.error(err);
             }
         },
-        setDeviceContext(id) {
-            if (!id) {
-                showErrorInfo('Device ID is required');
+        async loadWebhook(deviceId) {
+            try {
+                const res = await window.http.get(`/devices/${deviceId}/webhook`);
+                const wh = res.data.results || null;
+                this.webhookState = {
+                    ...this.webhookState,
+                    [deviceId]: {
+                        url: wh ? wh.url : '',
+                        enabled: wh ? wh.enabled : true,
+                        saved: wh ? wh.url : '',
+                        saving: false,
+                        testing: false,
+                        testResult: null,
+                        testMessage: '',
+                    }
+                };
+            } catch {
+                this.webhookState = {
+                    ...this.webhookState,
+                    [deviceId]: { url: '', enabled: true, saved: '', saving: false, testing: false, testResult: null, testMessage: '' }
+                };
+            }
+        },
+        wh(deviceId) {
+            return this.webhookState[deviceId] || { url: '', enabled: true, saved: '', saving: false, testing: false, testResult: null, testMessage: '' };
+        },
+        setWhField(deviceId, field, value) {
+            const current = this.wh(deviceId);
+            this.webhookState = { ...this.webhookState, [deviceId]: { ...current, [field]: value, testResult: null, testMessage: '' } };
+        },
+        async saveWebhook(deviceId) {
+            const state = this.wh(deviceId);
+            if (!state.url.trim()) {
+                showErrorInfo('Cole a URL do webhook n8n antes de salvar');
                 return;
             }
+            this.webhookState = { ...this.webhookState, [deviceId]: { ...state, saving: true, testResult: null } };
+            try {
+                await window.http.post(`/devices/${deviceId}/webhook`, {
+                    url: state.url.trim(),
+                    enabled: state.enabled,
+                });
+                showSuccessInfo('Webhook salvo!');
+                await this.loadWebhook(deviceId);
+            } catch (e) {
+                showErrorInfo(e.response?.data?.message || 'Falha ao salvar webhook');
+                this.webhookState = { ...this.webhookState, [deviceId]: { ...this.wh(deviceId), saving: false } };
+            }
+        },
+        async removeWebhook(deviceId) {
+            if (!confirm('Remover webhook deste dispositivo?')) return;
+            const state = this.wh(deviceId);
+            this.webhookState = { ...this.webhookState, [deviceId]: { ...state, saving: true } };
+            try {
+                await window.http.delete(`/devices/${deviceId}/webhook`);
+                showSuccessInfo('Webhook removido');
+                await this.loadWebhook(deviceId);
+            } catch (e) {
+                showErrorInfo(e.response?.data?.message || 'Falha ao remover webhook');
+                this.webhookState = { ...this.webhookState, [deviceId]: { ...this.wh(deviceId), saving: false } };
+            }
+        },
+        async testWebhook(deviceId) {
+            const state = this.wh(deviceId);
+            if (!state.url.trim()) {
+                showErrorInfo('Cole a URL antes de testar');
+                return;
+            }
+            this.webhookState = { ...this.webhookState, [deviceId]: { ...state, testing: true, testResult: null, testMessage: '' } };
+            try {
+                const res = await window.http.post(
+                    `/devices/${deviceId}/webhook/test`,
+                    { url: state.url.trim() },
+                    { timeout: 15000 }
+                );
+                const code = res.data?.code;
+                const msg = res.data?.message || '';
+                this.webhookState = { ...this.webhookState, [deviceId]: {
+                    ...this.wh(deviceId),
+                    testing: false,
+                    testResult: code === 'SUCCESS' ? 'ok' : 'error',
+                    testMessage: msg,
+                }};
+            } catch (e) {
+                this.webhookState = { ...this.webhookState, [deviceId]: {
+                    ...this.wh(deviceId),
+                    testing: false,
+                    testResult: 'error',
+                    testMessage: e.response?.data?.message || 'Falha ao contatar o webhook.',
+                }};
+            }
+        },
+        setDeviceContext(id) {
+            if (!id) { showErrorInfo('Device ID is required'); return; }
             this.selectedDeviceId = id;
             this.$emit('device-selected', id);
             showSuccessInfo(`Using device ${id}`);
@@ -52,23 +143,20 @@ export default {
         async createDevice() {
             try {
                 this.isCreatingDevice = true;
-                const payload = this.deviceIdInput ? {device_id: this.deviceIdInput} : {};
+                const payload = this.deviceIdInput ? { device_id: this.deviceIdInput } : {};
                 const res = await window.http.post('/devices', payload);
                 const deviceID = res.data?.results?.id || res.data?.results?.device_id || this.deviceIdInput;
                 this.setDeviceContext(deviceID);
                 this.deviceIdInput = '';
             } catch (err) {
-                const msg = err.response?.data?.message || err.message || 'Failed to create device';
-                showErrorInfo(msg);
+                showErrorInfo(err.response?.data?.message || err.message || 'Failed to create device');
             } finally {
                 this.isCreatingDevice = false;
+                await this.fetchDevices();
             }
         },
         useDeviceFromInput() {
-            if (!this.deviceIdInput) {
-                showErrorInfo('Enter a device_id or create one first.');
-                return;
-            }
+            if (!this.deviceIdInput) { showErrorInfo('Enter a device_id or create one first.'); return; }
             this.setDeviceContext(this.deviceIdInput);
         },
         openDeleteModal(deviceId, jid) {
@@ -76,13 +164,8 @@ export default {
             this.deviceToDelete = { id: deviceId, jid: jid || '', state: device?.state || '' };
             $('#deleteDeviceModal').modal({
                 closable: false,
-                onApprove: () => {
-                    this.executeDelete();
-                    return false;
-                },
-                onDeny: () => {
-                    this.resetDeleteState();
-                }
+                onApprove: () => { this.executeDelete(); return false; },
+                onDeny: () => { this.resetDeleteState(); }
             }).modal('show');
         },
         resetDeleteState() {
@@ -91,40 +174,25 @@ export default {
         },
         async executeDelete() {
             const deviceId = this.deviceToDelete.id;
-            if (!deviceId) {
-                showErrorInfo('No device selected for deletion');
-                return;
-            }
+            if (!deviceId) return;
             try {
                 this.isDeleting = true;
-                
-                // Logout first (fire and forget), then delete
-                window.http.get(`/app/logout`, {
-                    headers: { 'X-Device-Id': encodeURIComponent(deviceId) }
-                }).catch(() => {});
-                
+                window.http.get(`/app/logout`, { headers: { 'X-Device-Id': encodeURIComponent(deviceId) } }).catch(() => {});
                 await window.http.delete(`/devices/${encodeURIComponent(deviceId)}`);
                 showSuccessInfo(`Device ${deviceId} deleted successfully`);
                 $('#deleteDeviceModal').modal('hide');
-                
                 if (this.selectedDeviceId === deviceId) {
                     this.selectedDeviceId = '';
                     this.$emit('device-selected', '');
                 }
-                
                 await this.fetchDevices();
                 this.resetDeleteState();
             } catch (err) {
-                const msg = err.response?.data?.message || err.message || 'Failed to delete device';
-                showErrorInfo(msg);
+                showErrorInfo(err.response?.data?.message || err.message || 'Failed to delete device');
                 this.isDeleting = false;
             }
         },
-        // Called by parent to refresh devices
-        refresh() {
-            this.fetchDevices();
-        },
-        // Called by parent to update device list from websocket
+        refresh() { this.fetchDevices(); },
         updateDeviceList(devices) {
             if (Array.isArray(devices)) {
                 this.deviceList = devices;
@@ -136,16 +204,20 @@ export default {
         this.fetchDevices();
     },
     template: `
-    <div class="ui stackable grid">
-        <div class="ten wide column">
+    <div style="position: relative;">
+        <div>
             <div class="ui segment">
-                <h3 class="ui header">
-                    <i class="play icon"></i>
-                    <div class="content">
-                        Device setup
-                        <div class="sub header">Create or select a device_id, then open login.</div>
-                    </div>
-                </h3>
+                <i class="question circle outline icon"
+                   title="How to log in:\n- Step 1: Create a device to get device_id.\n- Step 2: Send X-Device-Id: device_id on REST calls.\n- Step 3: Open Login card to pair (QR or code).\n- WebSocket URL ends in /ws?device_id=<device_id>"
+                   style="position: absolute; top: 10px; right: 10px; font-size: 1.4em; color: #888; cursor: pointer; z-index: 10;">
+                </i>
+                
+                <div class="ui horizontal divider" style="margin-top: 5px; margin-bottom: 20px;">
+                    Device setup
+                </div>
+                <div style="text-align: center; color: #888; margin-bottom: 15px; font-size: 0.9em;">
+                    Create or select a device_id, then open login.
+                </div>
                 <div class="ui form">
                     <div class="two fields">
                         <div class="field">
@@ -165,46 +237,98 @@ export default {
                     </div>
                 </div>
                 <div class="ui divider"></div>
-                
+
                 <!-- Device List -->
-                <div class="ui relaxed list" v-if="deviceList.length">
-                    <div class="item" v-for="dev in deviceList" :key="dev.id || dev.device">
-                        <i class="mobile alternate icon"></i>
-                        <div class="content">
-                            <div class="header">{{ dev.id || dev.device }}</div>
-                            <div class="description">
-                                <span>State: {{ dev.state || 'unknown' }}</span>
-                                <span v-if="dev.jid"> · JID: {{ dev.jid }}</span>
+                <div v-if="deviceList.length">
+                    <div v-for="dev in deviceList" :key="dev.id || dev.device"
+                         style="border:1px solid #e0e0e0; border-radius:8px; padding:12px 14px; margin-bottom:10px; background:#fafafa">
+
+                        <!-- Row 1: device info + action buttons -->
+                        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px">
+                            <div style="display:flex; align-items:center; gap:10px">
+                                <i class="mobile alternate icon" style="font-size:1.3em; color:#555"></i>
+                                <div>
+                                    <div style="font-weight:600; font-size:1em">{{ dev.id || dev.device }}</div>
+                                    <div style="font-size:0.82em; color:#888; margin-top:2px">
+                                        <span :style="{color: dev.state === 'logged_in' ? '#21ba45' : '#aaa'}">
+                                            ● {{ dev.state || 'unknown' }}
+                                        </span>
+                                        <span v-if="dev.jid" style="margin-left:8px">JID: {{ dev.jid }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:6px; align-items:center">
+                                <button class="ui mini button"
+                                        :class="{active: selectedDeviceId === (dev.id || dev.device)}"
+                                        @click="setDeviceContext(dev.id || dev.device)">
+                                    {{ selectedDeviceId === (dev.id || dev.device) ? 'Selected' : 'Use' }}
+                                </button>
+                                <button class="ui mini red icon button"
+                                        @click="openDeleteModal(dev.id || dev.device, dev.jid)"
+                                        :class="{loading: isDeleting && deviceToDelete.id === (dev.id || dev.device)}"
+                                        title="Deletar device">
+                                    <i class="trash icon" style="margin:0"></i>
+                                </button>
                             </div>
                         </div>
-                        <div class="right floated content">
-                            <button class="ui mini button" 
-                                    :class="{active: selectedDeviceId === (dev.id || dev.device)}"
-                                    @click="setDeviceContext(dev.id || dev.device)">
-                                {{ selectedDeviceId === (dev.id || dev.device) ? 'Selected' : 'Use' }}
-                            </button>
-                            <button class="ui mini red icon button" 
-                                    @click="openDeleteModal(dev.id || dev.device, dev.jid)" 
-                                    :class="{loading: isDeleting && deviceToDelete.id === (dev.id || dev.device)}">
-                                <i class="trash icon" style="margin: 0;"></i>
-                            </button>
+
+                        <!-- Row 2: Webhook inline -->
+                        <div style="margin-top:10px">
+                            <div style="font-size:0.78em; font-weight:600; color:#555; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.04em">
+                                <i class="plug icon"></i> Webhook n8n
+                                <span v-if="wh(dev.id || dev.device).saved"
+                                      style="margin-left:6px; font-weight:normal; text-transform:none"
+                                      :style="{color: wh(dev.id || dev.device).enabled ? '#21ba45' : '#f2711c'}">
+                                    ● {{ wh(dev.id || dev.device).enabled ? 'Ativo' : 'Desativado' }}
+                                </span>
+                            </div>
+                            <div style="display:flex; gap:6px; align-items:center">
+                                <input
+                                    type="url"
+                                    :value="wh(dev.id || dev.device).url"
+                                    @input="setWhField(dev.id || dev.device, 'url', $event.target.value)"
+                                    placeholder="Cole aqui a URL do webhook n8n (ex: https://n8n.seudominio.com/webhook/abc)"
+                                    style="flex:1; padding:7px 10px; border:1px solid #ddd; border-radius:5px; font-size:0.88em; outline:none"
+                                    :style="{borderColor: wh(dev.id || dev.device).saved ? (wh(dev.id || dev.device).enabled ? '#21ba45' : '#f2711c') : '#ddd'}"
+                                />
+                                <button class="ui mini teal icon button"
+                                        :class="{loading: wh(dev.id || dev.device).testing}"
+                                        :disabled="!wh(dev.id || dev.device).url"
+                                        @click="testWebhook(dev.id || dev.device)"
+                                        title="Testar conexão com o webhook">
+                                    <i class="paper plane icon" style="margin:0; color: white;"></i>
+                                </button>
+                                <button class="ui mini primary icon button"
+                                        :class="{loading: wh(dev.id || dev.device).saving}"
+                                        :disabled="!wh(dev.id || dev.device).url"
+                                        @click="saveWebhook(dev.id || dev.device)"
+                                        title="Salvar webhook">
+                                    <i class="save icon" style="margin:0"></i>
+                                </button>
+                                <button class="ui mini red basic icon button"
+                                        v-if="wh(dev.id || dev.device).saved"
+                                        :class="{loading: wh(dev.id || dev.device).saving}"
+                                        @click="removeWebhook(dev.id || dev.device)"
+                                        title="Remover webhook">
+                                    <i class="times icon" style="margin:0"></i>
+                                </button>
+                            </div>
+                            <!-- Feedback de teste -->
+                            <div v-if="wh(dev.id || dev.device).testResult === 'ok'"
+                                 style="margin-top:5px; font-size:0.82em; color:#21ba45">
+                                <i class="check circle icon"></i> {{ wh(dev.id || dev.device).testMessage || 'Webhook respondeu com sucesso!' }}
+                            </div>
+                            <div v-if="wh(dev.id || dev.device).testResult === 'error'"
+                                 style="margin-top:5px; font-size:0.82em; color:#db2828">
+                                <i class="times circle icon"></i> {{ wh(dev.id || dev.device).testMessage || 'Falha ao contatar o webhook.' }}
+                            </div>
                         </div>
+
                     </div>
                 </div>
                 <div class="ui message" v-else>
                     No devices yet. Create one to begin.
                 </div>
-            </div>
-        </div>
-        <div class="six wide column">
-            <div class="ui warning message">
-                <div class="header">How to log in</div>
-                <ul class="list">
-                    <li>Step 1: Create a device to get <code>device_id</code>.</li>
-                    <li>Step 2: Send <code>X-Device-Id: device_id</code> on REST calls.</li>
-                    <li>Step 3: Open Login card to pair (QR or code).</li>
-                    <li>WebSocket URL: <code>{{ wsBasePath }}/ws?device_id=&lt;device_id&gt;</code></li>
-                </ul>
             </div>
         </div>
 

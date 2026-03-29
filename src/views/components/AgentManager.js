@@ -83,6 +83,8 @@ export default {
                 ollama: { api_url: 'http://localhost:11434/v1', api_key: '', model: 'llama3.2' },
                 openai: { api_url: 'https://api.openai.com/v1', api_key: '', model: 'gpt-4o-mini' },
                 groq: { api_url: 'https://api.groq.com/openai/v1', api_key: '', model: 'llama-3.1-8b-instant' },
+                gemini: { api_url: 'https://generativelanguage.googleapis.com/v1beta/openai/', api_key: '', model: 'gemini-1.5-flash' },
+                claude: { api_url: 'https://api.anthropic.com/v1', api_key: '', model: 'claude-3-5-sonnet-20241022' },
                 custom: { api_url: '', api_key: '', model: '' },
             };
             const preset = presets[provider] || presets.custom;
@@ -93,9 +95,40 @@ export default {
             const models = {
                 ollama: ['llama3.2', 'llama3.1', 'llama3', 'mistral', 'gemma2', 'qwen2.5', 'phi3', 'deepseek-r1', 'llava'],
                 openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo', 'o1-preview', 'o1-mini', 'o3-mini'],
-                groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'llama3-70b-8192', 'llama3-8b-8192', 'mixtral-8x7b-32768', 'gemma2-9b-it', 'deepseek-r1-distill-llama-70b']
+                groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'llama3-70b-8192', 'llama3-8b-8192', 'mixtral-8x7b-32768', 'gemma2-9b-it', 'deepseek-r1-distill-llama-70b'],
+                gemini: ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash', 'gemini-2.0-pro'],
+                claude: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229']
             };
             return models[provider] || [];
+        },
+        getModelDescription(modelName) {
+            if (!modelName) return 'Selecione um modelo para ver os detalhes.';
+            const desc = {
+                'gpt-4o': 'Mais rápido e inteligente (OpenAI). Custo: ~ $5 / 1M tokens (In) | $15 (Out)',
+                'gpt-4o-mini': 'Versão menor e mais barata (OpenAI). Custo: ~ $0.15 / 1M tokens (In) | $0.60 (Out)',
+                'gpt-4-turbo': 'Poderoso para raciocínio complexo. Custo: ~ $10 / 1M tokens (In) | $30 (Out)',
+                'gpt-4': 'Legado. Forte em raciocínio, porém mais caro. Custo: ~ $30 / 1M tokens (In) | $60 (Out)',
+                'gpt-3.5-turbo': 'Rápido, mas superado pelo gpt-4o-mini. Custo: ~ $0.50 / 1M tokens (In) | $1.50 (Out)',
+                'o1-preview': 'Foco em raciocínio avançado. Custo: ~ $15 / 1M tokens (In) | $60 (Out)',
+                'o1-mini': 'Raciocínio avançado rápido/barato. Custo: ~ $3 / 1M tokens (In) | $12 (Out)',
+                'o3-mini': 'Raciocínio rápido (Math/Code). Custo: ~ $1.10 / 1M tokens (In) | $4.40 (Out)',
+                'llama-3.3-70b-versatile': 'Equilíbrio e versatilidade 70B (Groq). Custo: ~$0.59 / 1M tokens',
+                'llama-3.1-8b-instant': 'Super rápido para tarefas simples (Groq). Custo: ~$0.05 / 1M tokens',
+                'mixtral-8x7b-32768': 'Alta eficiência com arquitetura mista (Groq). Custo: ~$0.24 / 1M tokens',
+                'gemma2-9b-it': 'Ótima qualidade em modelo leve (Groq). Custo: ~$0.20 / 1M tokens',
+                'deepseek-r1-distill-llama-70b': 'Alto raciocínio DeepSeek+Llama (Groq). Custo: ~$0.75 / 1M tokens',
+                'gemini-1.5-flash': 'Rápido e barato. Contexto de até 1 Milhão (Google). Custo: ~ $0.075 / 1M tokens (In)',
+                'gemini-1.5-pro': 'Lida com raciocínio complexo. Contexto enorme (Google). Custo: ~ $3.50 / 1M tokens (In)',
+                'gemini-2.0-flash': 'Flash-V2. Excelente balanceamento (Google). Custo: ~ $0.10 / 1M tokens (In)',
+                'gemini-2.0-pro': 'Trabalho analítico avançado e raciocínio pesado (Google). Custo: ~ $5.00 / 1M tokens',
+                'claude-3-5-sonnet-20241022': 'Inteligência top com excelente velocidade. Ótimo em Código (Anthropic). Custo: ~ $3 / 1M tokens (In) | $15 (Out)',
+                'claude-3-5-haiku-20241022': 'O mais rápido da Anthropic. Custo: ~ $0.25 / 1M tokens (In) | $1.25 (Out)',
+                'claude-3-opus-20240229': 'Poderoso para tarefas complexas. Custo: ~ $15 / 1M tokens (In) | $75 (Out)',
+                'llama3.2': 'Llama 3.2 local (Ollama). Custo: Zero',
+                'llama3.1': 'Llama 3.1 local (Ollama). Custo: Zero',
+                'deepseek-r1': 'DeepSeek R1 com raciocínio ChainOfThought (Ollama). Custo: Zero'
+            };
+            return desc[modelName] || 'Local / Custom model. Consulte as tabelas do provedor para obter preços atualizados.';
         },
         async saveAgent(deviceId) {
             const form = this.ms(deviceId);
@@ -234,9 +267,9 @@ export default {
                     <div style="font-size:0.82em; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px">
                         Provedor LLM
                     </div>
-                    <div class="ui four small buttons">
-                        <button class="ui button"
-                                v-for="p in ['ollama','openai','groq','custom']"
+                    <div style="display:flex; flex-wrap:wrap; gap:5px;">
+                        <button class="ui small button"
+                                v-for="p in ['ollama','openai','groq','gemini','claude','custom']"
                                 :key="p"
                                 :class="{primary: ms(dev.id || dev.device).provider === p}"
                                 @click="applyProviderPreset(dev.id || dev.device, p)"
@@ -259,7 +292,7 @@ export default {
                         <div class="field">
                             <label>Modelo</label>
                             <select v-if="ms(dev.id || dev.device).provider !== 'custom'"
-                                    class="ui dropdown"
+                                    style="width: 100%; border: 1px solid rgba(34,36,38,.15); border-radius: .285rem; padding: 0.62em; outline: none; background: #fff;"
                                     :value="ms(dev.id || dev.device).model"
                                     @change="setMsField(dev.id || dev.device, 'model', $event.target.value)">
                                 <option v-for="m in getModelsForProvider(ms(dev.id || dev.device).provider)" :key="m" :value="m">{{ m }}</option>
@@ -268,6 +301,11 @@ export default {
                                    :value="ms(dev.id || dev.device).model"
                                    @input="setMsField(dev.id || dev.device, 'model', $event.target.value)"
                                    placeholder="Digite o seu modelo customizado..." />
+                                   
+                            <!-- Balloon for description -->
+                            <div style="margin-top: 6px; font-size: 0.85em; color: #555; background: #fdfdfd; border: 1px solid #eee; padding: 6px 10px; border-radius: 4px; border-left: 3px solid #21ba45; line-height: 1.4;">
+                                <i class="info circle icon" style="color: #21ba45;"></i> {{ getModelDescription(ms(dev.id || dev.device).model) }}
+                            </div>
                         </div>
                     </div>
                     <div class="field" v-if="ms(dev.id || dev.device).provider !== 'ollama'">
