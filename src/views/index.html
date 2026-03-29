@@ -16,14 +16,14 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/axios@1.1.2/dist/axios.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
-    <title>WhatsApp API {{ .AppVersion }}</title>
+    <title>Robit {{ .AppVersion }}</title>
 </head>
 <body>
 <div id="splash-screen">
     <!-- Clean squircle logo without background wrapper -->
-    <img src="{{ .AppBasePath }}/assets/gowa.svg" alt="GoWA Logo" class="splash-icon" id="main-logo">
-    
-    <h2 class="splash-title">WhatsApp API</h2>
+    <img src="{{ .AppBasePath }}/assets/gowa.svg" alt="ROBIT Logo" class="splash-icon" id="main-logo">
+
+    <h2 class="splash-title">Robit</h2>
     <div class="ui active large inline loader splash-spinner"></div>
 </div>
 
@@ -31,10 +31,10 @@
     <div class="main-header">
         <h1 class="ui header center aligned">
             <div class="title-container">
-                <img src="{{ .AppBasePath }}/assets/gowa.svg" alt="GoWA Logo">
-                
-                <span>WhatsApp API</span>
-                
+                <img src="{{ .AppBasePath }}/assets/gowa.svg" alt="ROBIT Logo">
+
+                <span>Robit</span>
+
                 <div class="version-label">
                     {{ .AppVersion }}
                 </div>
@@ -42,10 +42,22 @@
         </h1>
     </div>
 
+    <!-- Tab navigation -->
+    <div class="ui secondary pointing menu" style="margin-bottom:1.5rem; border-bottom:2px solid #e0e0e0;">
+        <a class="item" :class="{active: currentTab==='dashboard'}" @click="currentTab='dashboard'" style="font-weight:600">
+            <i class="th large icon"></i> Dashboard
+        </a>
+        <a class="item" :class="{active: currentTab==='agents'}" @click="currentTab='agents'" style="font-weight:600">
+            <i class="robot icon"></i> Agentes IA
+        </a>
+    </div>
+
+    <!-- device-manager is always mounted to keep deviceList updated; hidden on agents tab -->
+    <div v-show="currentTab==='dashboard'">
+
     <div class="ui info message" v-if="selectedDeviceId">
         <div class="header">
-            <i class="linkify icon"></i>
-            Device context active
+            <i class="linkify icon"></i> Device context active
         </div>
         <p>
             Using device: <b>[[ selectedDeviceId ]]</b>.
@@ -53,7 +65,7 @@
         </p>
     </div>
 
-    <device-manager 
+    <device-manager
         ref="deviceManager"
         ws-base-path="{{ .AppBasePath }}"
         @device-selected="handleDeviceSelected"
@@ -164,6 +176,74 @@
         <chat-messages></chat-messages>
     </div>
 
+    </div><!-- end dashboard tab -->
+
+    <!-- ==================== AGENTS TAB ==================== -->
+    <div v-show="currentTab==='agents'" style="padding-bottom:2rem">
+
+        <!-- Page header -->
+        <div style="display:flex; align-items:center; gap:14px; margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid #e8e8e8">
+            <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6); border-radius:12px; padding:12px; display:flex; align-items:center; justify-content:center">
+                <i class="robot icon" style="font-size:1.6em; color:#fff; margin:0"></i>
+            </div>
+            <div>
+                <h2 style="margin:0; font-size:1.5rem; font-weight:700; color:#1f2937">Agentes de IA</h2>
+                <p style="margin:4px 0 0; color:#6b7280; font-size:0.9rem">
+                    Configure respostas automáticas por dispositivo: via <strong>n8n (webhook)</strong> ou <strong>LLM direto</strong> (Ollama, OpenAI, Groq…)
+                </p>
+            </div>
+        </div>
+
+        <!-- Two-column layout: agent list (left) + reference panel (right) -->
+        <div class="ui stackable grid">
+            <div class="twelve wide column">
+                <agent-manager :device-list="deviceList"></agent-manager>
+            </div>
+
+            <div class="four wide column">
+                <!-- How it works -->
+                <div class="ui segment" style="border-radius:10px; border:none; box-shadow:0 1px 4px rgba(0,0,0,.08)">
+                    <h4 class="ui header" style="margin-bottom:12px">
+                        <i class="question circle outline icon" style="color:#6366f1"></i>
+                        <div class="content">Como funciona</div>
+                    </h4>
+                    <div style="font-size:0.85rem; color:#374151; line-height:1.6">
+                        <p><strong>1 — n8n (Webhook)</strong><br>
+                        Configure o webhook na aba <em>Device setup</em>. O ROBIT encaminha cada mensagem recebida ao n8n, que processa com IA e chama <code>/send/message</code> de volta.</p>
+                        <p style="margin-top:10px"><strong>2 — LLM Direto</strong><br>
+                        O ROBIT chama a API do LLM a cada mensagem recebida e responde automaticamente — sem precisar do n8n.</p>
+                    </div>
+                </div>
+
+                <!-- Supported providers -->
+                <div class="ui segment" style="margin-top:12px; border-radius:10px; border:none; box-shadow:0 1px 4px rgba(0,0,0,.08)">
+                    <h4 class="ui header" style="margin-bottom:12px">
+                        <i class="microchip icon" style="color:#6366f1"></i>
+                        <div class="content">Providers suportados</div>
+                    </h4>
+                    <div style="font-size:0.85rem; color:#374151; line-height:1.8">
+                        <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#21ba45;margin-right:6px"></span><strong>Ollama</strong> — modelos locais (llama3, mistral, qwen…)</div>
+                        <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2185d0;margin-right:6px"></span><strong>OpenAI</strong> — GPT-4o, GPT-4o-mini…</div>
+                        <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f2711c;margin-right:6px"></span><strong>Groq</strong> — llama-3.1 ultrarrápido</div>
+                        <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#a333c8;margin-right:6px"></span><strong>Custom</strong> — qualquer API OpenAI-compatível</div>
+                    </div>
+                </div>
+
+                <!-- Tips -->
+                <div class="ui info message" style="margin-top:12px; border-radius:10px; font-size:0.83rem">
+                    <div class="header" style="font-size:0.9rem">Dicas</div>
+                    <ul class="list" style="margin-top:6px">
+                        <li>O LLM só responde a chats <strong>individuais</strong> — grupos são ignorados.</li>
+                        <li>Use o <strong>System Prompt</strong> para definir a personalidade do agente.</li>
+                        <li>Clique em <em>Testar LLM</em> antes de salvar para verificar a conexão.</li>
+                        <li>n8n e LLM podem coexistir no mesmo dispositivo.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- end agents tab -->
+
 </div>
 <script>
     window.TYPEGROUP = "@g.us";
@@ -248,6 +328,8 @@
     import ChatList from "{{ .AppBasePath }}/components/ChatList.js";
     import ChatMessages from "{{ .AppBasePath }}/components/ChatMessages.js";
     import DeviceManager from "{{ .AppBasePath }}/components/DeviceManager.js";
+    import DeviceWebhook from "{{ .AppBasePath }}/components/DeviceWebhook.js";
+    import AgentManager from "{{ .AppBasePath }}/components/AgentManager.js";
 
     const showErrorInfo = (message) => {
         $('body').toast({
@@ -277,7 +359,7 @@
             NewsletterList,
             AccountAvatar, AccountUserInfo, AccountPrivacy, AccountChangeAvatar, AccountContact, AccountChangePushName, AccountUserCheck, AccountBusinessProfile,
             ChatPinManager, ChatDisappearingManager, ChatList, ChatMessages,
-            DeviceManager
+            DeviceManager, DeviceWebhook, AgentManager
         },
         delimiters: ['[[', ']]'],
         data() {
@@ -286,6 +368,7 @@
                 connected_devices: null,
                 deviceList: [],
                 selectedDeviceId: '',
+                currentTab: 'dashboard',
             }
         },
         computed: {
