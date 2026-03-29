@@ -198,7 +198,8 @@ export default {
                 this.deviceList = devices;
                 this.$emit('devices-updated', devices);
             }
-        }
+        },
+        t(key) { return window.i18n ? window.i18n.t(key) : key; }
     },
     mounted() {
         this.fetchDevices();
@@ -216,22 +217,22 @@ export default {
                     Device setup
                 </div>
                 <div style="text-align: center; color: #888; margin-bottom: 15px; font-size: 0.9em;">
-                    Create or select a device_id, then open login.
+                    {{ t('device.setup.subtitle') }}
                 </div>
                 <div class="ui form">
                     <div class="two fields">
                         <div class="field">
-                            <label>Device ID (optional)</label>
-                            <input type="text" v-model="deviceIdInput" placeholder="Leave empty to auto-generate">
+                            <label>{{ t('device.setup.field.deviceid') }}</label>
+                            <input type="text" v-model="deviceIdInput" :placeholder="t('device.setup.placeholder')">
                         </div>
                         <div class="field">
-                            <label>Actions</label>
+                            <label>&nbsp;</label>
                             <div class="ui buttons">
                                 <button class="ui primary button" :class="{loading: isCreatingDevice}" @click="createDevice">
-                                    Create device
+                                    {{ t('device.setup.btn.create') }}
                                 </button>
                                 <div class="or"></div>
-                                <button class="ui button" @click="useDeviceFromInput">Use this device</button>
+                                <button class="ui button" @click="useDeviceFromInput">{{ t('device.setup.btn.use') }}</button>
                             </div>
                         </div>
                     </div>
@@ -251,7 +252,7 @@ export default {
                                     <div style="font-weight:600; font-size:1em">{{ dev.id || dev.device }}</div>
                                     <div style="font-size:0.82em; color:#888; margin-top:2px">
                                         <span :style="{color: dev.state === 'logged_in' ? '#21ba45' : '#aaa'}">
-                                            ● {{ dev.state || 'unknown' }}
+                                            ● {{ dev.state || $t('device.state.unknown') }}
                                         </span>
                                         <span v-if="dev.jid" style="margin-left:8px">JID: {{ dev.jid }}</span>
                                     </div>
@@ -261,12 +262,12 @@ export default {
                                 <button class="ui mini button"
                                         :class="{active: selectedDeviceId === (dev.id || dev.device)}"
                                         @click="setDeviceContext(dev.id || dev.device)">
-                                    {{ selectedDeviceId === (dev.id || dev.device) ? 'Selected' : 'Use' }}
+                                    {{ selectedDeviceId === (dev.id || dev.device) ? $t('device.btn.selected') : $t('device.btn.use') }}
                                 </button>
                                 <button class="ui mini red icon button"
                                         @click="openDeleteModal(dev.id || dev.device, dev.jid)"
                                         :class="{loading: isDeleting && deviceToDelete.id === (dev.id || dev.device)}"
-                                        title="Deletar device">
+                                        :title="$t('device.btn.delete')">
                                     <i class="trash icon" style="margin:0"></i>
                                 </button>
                             </div>
@@ -275,11 +276,11 @@ export default {
                         <!-- Row 2: Webhook inline -->
                         <div style="margin-top:10px">
                             <div style="font-size:0.78em; font-weight:600; color:#555; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.04em">
-                                <i class="plug icon"></i> Webhook n8n
+                                <i class="plug icon"></i> {{ $t('device.webhook.label') }}
                                 <span v-if="wh(dev.id || dev.device).saved"
                                       style="margin-left:6px; font-weight:normal; text-transform:none"
                                       :style="{color: wh(dev.id || dev.device).enabled ? '#21ba45' : '#f2711c'}">
-                                    ● {{ wh(dev.id || dev.device).enabled ? 'Ativo' : 'Desativado' }}
+                                    ● {{ wh(dev.id || dev.device).enabled ? $t('device.webhook.active') : $t('device.webhook.inactive') }}
                                 </span>
                             </div>
                             <div style="display:flex; gap:6px; align-items:center">
@@ -287,7 +288,7 @@ export default {
                                     type="url"
                                     :value="wh(dev.id || dev.device).url"
                                     @input="setWhField(dev.id || dev.device, 'url', $event.target.value)"
-                                    placeholder="Cole aqui a URL do webhook n8n (ex: https://n8n.seudominio.com/webhook/abc)"
+                                    :placeholder="$t('device.webhook.placeholder')"
                                     style="flex:1; padding:7px 10px; border:1px solid #ddd; border-radius:5px; font-size:0.88em; outline:none"
                                     :style="{borderColor: wh(dev.id || dev.device).saved ? (wh(dev.id || dev.device).enabled ? '#21ba45' : '#f2711c') : '#ddd'}"
                                 />
@@ -295,28 +296,28 @@ export default {
                                         :class="{loading: wh(dev.id || dev.device).testing}"
                                         :disabled="!wh(dev.id || dev.device).url"
                                         @click="testWebhook(dev.id || dev.device)"
-                                        title="Testar conexão com o webhook">
+                                        :title="$t('device.webhook.test.title')">
                                     <i class="paper plane icon" style="margin:0; color: white;"></i>
                                 </button>
                                 <button class="ui mini primary icon button"
                                         :class="{loading: wh(dev.id || dev.device).saving}"
                                         :disabled="!wh(dev.id || dev.device).url"
                                         @click="saveWebhook(dev.id || dev.device)"
-                                        title="Salvar webhook">
+                                        :title="$t('device.webhook.save.title')">
                                     <i class="save icon" style="margin:0"></i>
                                 </button>
                                 <button class="ui mini red basic icon button"
                                         v-if="wh(dev.id || dev.device).saved"
                                         :class="{loading: wh(dev.id || dev.device).saving}"
                                         @click="removeWebhook(dev.id || dev.device)"
-                                        title="Remover webhook">
+                                        :title="$t('device.webhook.remove.title')">
                                     <i class="times icon" style="margin:0"></i>
                                 </button>
                             </div>
                             <!-- Feedback de teste -->
                             <div v-if="wh(dev.id || dev.device).testResult === 'ok'"
                                  style="margin-top:5px; font-size:0.82em; color:#21ba45">
-                                <i class="check circle icon"></i> {{ wh(dev.id || dev.device).testMessage || 'Webhook respondeu com sucesso!' }}
+                                <i class="check circle icon"></i> {{ wh(dev.id || dev.device).testMessage || $t('device.webhook.test.success') }}
                             </div>
                             <div v-if="wh(dev.id || dev.device).testResult === 'error'"
                                  style="margin-top:5px; font-size:0.82em; color:#db2828">
@@ -327,7 +328,7 @@ export default {
                     </div>
                 </div>
                 <div class="ui message" v-else>
-                    No devices yet. Create one to begin.
+                    {{ t('device.setup.nodevices') }}
                 </div>
             </div>
         </div>

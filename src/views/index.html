@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt">
 <head>
     <!-- Required meta tags -->
     <meta charset="utf-8">
@@ -35,8 +35,36 @@
 
                 <span>Robit</span>
 
-                <div class="version-label">
-                    {{ .AppVersion }}
+                <div class="lang-picker" id="lang-picker">
+                    <button onclick="window.i18n.setLang('pt')" title="Português (BR)" style="background:none;border:none;cursor:pointer;padding:2px;opacity:0.5;transition:opacity .2s" id="lang-btn-pt">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 504" width="28" height="20" style="display:block;border-radius:3px">
+                          <rect width="720" height="504" fill="#009c3b"/>
+                          <polygon points="360,45 675,252 360,459 45,252" fill="#ffdf00"/>
+                          <circle cx="360" cy="252" r="108" fill="#002776"/>
+                          <path d="M252,252 a108,108 0 0,1 216,0" fill="none" stroke="#fff" stroke-width="12"/>
+                          <rect x="252" y="234" width="216" height="36" fill="#fff" opacity="0.15"/>
+                          <text x="360" y="268" text-anchor="middle" font-size="42" fill="#fff" font-family="serif" font-weight="bold">BRASIL</text>
+                        </svg>
+                    </button>
+                    <button onclick="window.i18n.setLang('en')" title="English (US)" style="background:none;border:none;cursor:pointer;padding:2px;opacity:0.5;transition:opacity .2s" id="lang-btn-en">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 30" width="28" height="20" style="display:block;border-radius:3px">
+                          <clipPath id="a"><path d="M0 0v30h60V0z"/></clipPath>
+                          <clipPath id="b"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath>
+                          <g clip-path="url(#a)">
+                            <path d="M0 0v30h60V0z" fill="#012169"/>
+                            <path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/>
+                            <path d="M0 0l60 30m0-30L0 30" clip-path="url(#b)" stroke="#C8102E" stroke-width="4"/>
+                            <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
+                            <path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/>
+                          </g>
+                        </svg>
+                    </button>
+                    <button onclick="window.i18n.setLang('es')" title="Español" style="background:none;border:none;cursor:pointer;padding:2px;opacity:0.5;transition:opacity .2s" id="lang-btn-es">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 750 500" width="28" height="20" style="display:block;border-radius:3px">
+                          <rect width="750" height="500" fill="#c60b1e"/>
+                          <rect width="750" height="250" y="125" fill="#ffc400"/>
+                        </svg>
+                    </button>
                 </div>
             </div>
         </h1>
@@ -45,10 +73,10 @@
     <!-- Tab navigation -->
     <div class="ui secondary pointing menu" style="margin-bottom:1.5rem; border-bottom:2px solid #e0e0e0;">
         <a class="item" :class="{active: currentTab==='dashboard'}" @click="currentTab='dashboard'" style="font-weight:600">
-            <i class="th large icon"></i> Dashboard
+            <i class="th large icon"></i> [[ $t('tab.dashboard') ]]
         </a>
         <a class="item" :class="{active: currentTab==='agents'}" @click="currentTab='agents'" style="font-weight:600">
-            <i class="robot icon"></i> Agentes IA
+            <i class="robot icon"></i> [[ $t('tab.agents') ]]
         </a>
     </div>
 
@@ -246,6 +274,150 @@
 
 </div>
 <script>
+    // =========================================================
+    // i18n System — runs BEFORE Vue mounts
+    // =========================================================
+    window.i18n = (() => {
+        const messages = {
+            pt: {
+                'tab.dashboard': 'Dashboard',
+                'tab.agents': 'Agentes IA',
+                'device.setup.subtitle': 'Crie ou selecione um device_id, depois abra o login.',
+                'device.setup.field.deviceid': 'Device ID (opcional)',
+                'device.setup.placeholder': 'Deixe em branco para gerar automaticamente',
+                'device.setup.btn.create': 'Criar dispositivo',
+                'device.setup.btn.use': 'Usar este dispositivo',
+                'device.setup.nodevices': 'Nenhum dispositivo ainda. Crie um para começar.',
+                'device.webhook.label': 'Webhook n8n',
+                'device.webhook.active': 'Ativo',
+                'device.webhook.inactive': 'Desativado',
+                'device.webhook.placeholder': 'Cole aqui a URL do webhook n8n',
+                'device.webhook.test.title': 'Testar conexão com o webhook',
+                'device.webhook.save.title': 'Salvar webhook',
+                'device.webhook.remove.title': 'Remover webhook',
+                'device.how.title': 'Como fazer login:\n1. Crie um dispositivo.\n2. Envie X-Device-Id nas chamadas REST.\n3. Abra o Login e escaneie o QR.',
+                'agent.provider.label': 'Provedor LLM',
+                'agent.model.label': 'Modelo',
+                'agent.apiurl.label': 'API URL',
+                'agent.apikey.label': 'API Key',
+                'agent.systemprompt.label': 'Prompt do sistema',
+                'agent.systemprompt.sub': '(personalidade / instruções)',
+                'agent.systemprompt.placeholder': 'Ex: Você é um assistente amigável da empresa ACME. Responda sempre em português de forma concisa e educada.',
+                'agent.enabled.label': 'Agente habilitado (responde automaticamente às mensagens recebidas)',
+                'agent.btn.configure': 'Configurar',
+                'agent.btn.cancel': 'Cancelar',
+                'agent.btn.test': 'Testar LLM',
+                'agent.btn.save': 'Salvar',
+                'agent.btn.remove': 'Remover',
+                'agent.status.active': 'LLM Ativo',
+                'agent.status.paused': 'LLM Pausado',
+                'agent.status.none': 'Sem agente',
+                'agent.model.custom.placeholder': 'Digite o seu modelo customizado...',
+                'agent.nodevices': 'Nenhum dispositivo encontrado',
+                'agent.nodevices.hint': 'Acesse a aba Dashboard e crie um dispositivo na seção Device setup antes de configurar agentes.',
+            },
+            en: {
+                'tab.dashboard': 'Dashboard',
+                'tab.agents': 'AI Agents',
+                'device.setup.subtitle': 'Create or select a device_id, then open login.',
+                'device.setup.field.deviceid': 'Device ID (optional)',
+                'device.setup.placeholder': 'Leave empty to auto-generate',
+                'device.setup.btn.create': 'Create device',
+                'device.setup.btn.use': 'Use this device',
+                'device.setup.nodevices': 'No devices yet. Create one to begin.',
+                'device.webhook.label': 'n8n Webhook',
+                'device.webhook.active': 'Active',
+                'device.webhook.inactive': 'Disabled',
+                'device.webhook.placeholder': 'Paste your n8n webhook URL here',
+                'device.webhook.test.title': 'Test webhook connection',
+                'device.webhook.save.title': 'Save webhook',
+                'device.webhook.remove.title': 'Remove webhook',
+                'device.how.title': 'How to log in:\n1. Create a device.\n2. Send X-Device-Id on REST calls.\n3. Open Login and scan the QR.',
+                'agent.provider.label': 'LLM Provider',
+                'agent.model.label': 'Model',
+                'agent.apiurl.label': 'API URL',
+                'agent.apikey.label': 'API Key',
+                'agent.systemprompt.label': 'System Prompt',
+                'agent.systemprompt.sub': '(personality / instructions)',
+                'agent.systemprompt.placeholder': 'E.g.: You are a friendly assistant for ACME Corp. Always respond concisely in English.',
+                'agent.enabled.label': 'Agent enabled (auto-replies to incoming messages)',
+                'agent.btn.configure': 'Configure',
+                'agent.btn.cancel': 'Cancel',
+                'agent.btn.test': 'Test LLM',
+                'agent.btn.save': 'Save',
+                'agent.btn.remove': 'Remove',
+                'agent.status.active': 'LLM Active',
+                'agent.status.paused': 'LLM Paused',
+                'agent.status.none': 'No agent',
+                'agent.model.custom.placeholder': 'Enter your custom model name...',
+                'agent.nodevices': 'No devices found',
+                'agent.nodevices.hint': 'Go to the Dashboard tab and create a device in the Device setup section before configuring agents.',
+            },
+            es: {
+                'tab.dashboard': 'Panel de Control',
+                'tab.agents': 'Agentes IA',
+                'device.setup.subtitle': 'Crea o selecciona un device_id, luego abre el login.',
+                'device.setup.field.deviceid': 'Device ID (opcional)',
+                'device.setup.placeholder': 'Dejar vacío para generar automáticamente',
+                'device.setup.btn.create': 'Crear dispositivo',
+                'device.setup.btn.use': 'Usar este dispositivo',
+                'device.setup.nodevices': 'Ningún dispositivo aún. Crea uno para comenzar.',
+                'device.webhook.label': 'Webhook n8n',
+                'device.webhook.active': 'Activo',
+                'device.webhook.inactive': 'Desactivado',
+                'device.webhook.placeholder': 'Pega aquí la URL del webhook n8n',
+                'device.webhook.test.title': 'Probar conexión con el webhook',
+                'device.webhook.save.title': 'Guardar webhook',
+                'device.webhook.remove.title': 'Eliminar webhook',
+                'device.how.title': 'Cómo iniciar sesión:\n1. Crea un dispositivo.\n2. Envía X-Device-Id en las llamadas REST.\n3. Abre Login y escanea el QR.',
+                'agent.provider.label': 'Proveedor LLM',
+                'agent.model.label': 'Modelo',
+                'agent.apiurl.label': 'URL de la API',
+                'agent.apikey.label': 'API Key',
+                'agent.systemprompt.label': 'Prompt del sistema',
+                'agent.systemprompt.sub': '(personalidad / instrucciones)',
+                'agent.systemprompt.placeholder': 'Ej: Eres un asistente amigable de la empresa ACME. Responde siempre en español de manera concisa.',
+                'agent.enabled.label': 'Agente habilitado (responde automáticamente a los mensajes entrantes)',
+                'agent.btn.configure': 'Configurar',
+                'agent.btn.cancel': 'Cancelar',
+                'agent.btn.test': 'Probar LLM',
+                'agent.btn.save': 'Guardar',
+                'agent.btn.remove': 'Eliminar',
+                'agent.status.active': 'LLM Activo',
+                'agent.status.paused': 'LLM Pausado',
+                'agent.status.none': 'Sin agente',
+                'agent.model.custom.placeholder': 'Escribe el nombre de tu modelo personalizado...',
+                'agent.nodevices': 'No se encontraron dispositivos',
+                'agent.nodevices.hint': 'Ve a la pestaña Dashboard y crea un dispositivo en la sección Device setup antes de configurar agentes.',
+            }
+        };
+
+        const state = Vue.reactive({
+            locale: localStorage.getItem('robit_lang') || 'pt'
+        });
+
+        function t(key) {
+            return (messages[state.locale] || messages['pt'])[key] || key;
+        }
+
+        function setLang(lang) {
+            if (!messages[lang]) return;
+            state.locale = lang;
+            localStorage.setItem('robit_lang', lang);
+            document.documentElement.lang = lang === 'pt' ? 'pt-BR' : lang;
+            // Update button opacities
+            ['pt','en','es'].forEach(l => {
+                const btn = document.getElementById('lang-btn-' + l);
+                if (btn) btn.style.opacity = l === lang ? '1' : '0.45';
+            });
+        }
+
+        return { state, t, setLang, messages };
+    })();
+
+    // Global $t shorthand used outside Vue components (plain HTML buttons etc.)
+    window.$t = window.i18n.t;
+
     window.TYPEGROUP = "@g.us";
     window.TYPEUSER = "@s.whatsapp.net";
     window.TYPENEWSLETTER = "@newsletter";
@@ -362,6 +534,8 @@
             DeviceManager, DeviceWebhook, AgentManager
         },
         delimiters: ['[[', ']]'],
+        // Expose $t inside every Vue component/template through app.config.globalProperties
+        setup() {},
         data() {
             return {
                 app_ws: null,
@@ -502,6 +676,8 @@
             setTimeout(() => {
                 document.getElementById('app').style.display = 'block';
                 document.getElementById('splash-screen').classList.add('fade-out');
+                // Apply saved language preference on boot
+                window.i18n.setLang(window.i18n.state.locale);
             }, 800);
         },
     }).mount('#app')

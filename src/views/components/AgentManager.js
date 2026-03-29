@@ -195,15 +195,16 @@ export default {
                 }};
             }
         },
+        t(key) { return window.i18n ? window.i18n.t(key) : key; }
     },
     template: `
 <div>
     <div v-if="deviceList.length === 0" class="ui placeholder segment" style="border-radius:10px; border:2px dashed #d1d5db">
         <div class="ui icon header" style="color:#9ca3af">
             <i class="mobile alternate icon"></i>
-            Nenhum dispositivo encontrado
+            {{ t('agent.nodevices') }}
         </div>
-        <p style="color:#6b7280; font-size:0.9rem">Acesse a aba <strong>Dashboard</strong> e crie um dispositivo na seção <em>Device setup</em> antes de configurar agentes.</p>
+        <p style="color:#6b7280; font-size:0.9rem">{{ t('agent.nodevices.hint') }}</p>
     </div>
 
     <div v-for="dev in deviceList" :key="dev.id || dev.device"
@@ -228,20 +229,20 @@ export default {
                 <!-- LLM badge -->
                 <span v-if="ag(dev.id || dev.device).agent && ag(dev.id || dev.device).agent.enabled"
                       style="background:#21ba45; color:#fff; border-radius:12px; padding:3px 10px; font-size:0.78em; font-weight:600">
-                    <i class="robot icon"></i> LLM Ativo
+                    <i class="robot icon"></i> {{ t('agent.status.active') }}
                 </span>
                 <span v-else-if="ag(dev.id || dev.device).agent && !ag(dev.id || dev.device).agent.enabled"
                       style="background:#f2711c; color:#fff; border-radius:12px; padding:3px 10px; font-size:0.78em; font-weight:600">
-                    <i class="robot icon"></i> LLM Pausado
+                    <i class="robot icon"></i> {{ t('agent.status.paused') }}
                 </span>
                 <span v-else style="background:#e0e0e0; color:#888; border-radius:12px; padding:3px 10px; font-size:0.78em">
-                    Sem agente
+                    {{ t('agent.status.none') }}
                 </span>
 
                 <button class="ui mini primary button"
                         :class="{loading: ag(dev.id || dev.device).loading}"
                         @click="openModal(dev.id || dev.device)">
-                    <i class="cog icon"></i> Configurar
+                    <i class="cog icon"></i> {{ t('agent.btn.configure') }}
                 </button>
             </div>
         </div>
@@ -265,7 +266,7 @@ export default {
                 <!-- Provider selector -->
                 <div style="margin-bottom:14px">
                     <div style="font-size:0.82em; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px">
-                        Provedor LLM
+                        {{ t('agent.provider.label') }}
                     </div>
                     <div style="display:flex; flex-wrap:wrap; gap:5px;">
                         <button class="ui small button"
@@ -283,14 +284,14 @@ export default {
                 <div class="ui form">
                     <div class="two fields">
                         <div class="field">
-                            <label>API URL</label>
+                            <label>{{ t('agent.apiurl.label') }}</label>
                             <input type="url"
                                    :value="ms(dev.id || dev.device).api_url"
                                    @input="setMsField(dev.id || dev.device, 'api_url', $event.target.value)"
                                    placeholder="http://localhost:11434/v1" />
                         </div>
                         <div class="field">
-                            <label>Modelo</label>
+                            <label>{{ t('agent.model.label') }}</label>
                             <select v-if="ms(dev.id || dev.device).provider !== 'custom'"
                                     style="width: 100%; border: 1px solid rgba(34,36,38,.15); border-radius: .285rem; padding: 0.62em; outline: none; background: #fff;"
                                     :value="ms(dev.id || dev.device).model"
@@ -300,7 +301,7 @@ export default {
                             <input v-else type="text"
                                    :value="ms(dev.id || dev.device).model"
                                    @input="setMsField(dev.id || dev.device, 'model', $event.target.value)"
-                                   placeholder="Digite o seu modelo customizado..." />
+                                   :placeholder="t('agent.model.custom.placeholder')" />
                                    
                             <!-- Balloon for description -->
                             <div style="margin-top: 6px; font-size: 0.85em; color: #555; background: #fdfdfd; border: 1px solid #eee; padding: 6px 10px; border-radius: 4px; border-left: 3px solid #21ba45; line-height: 1.4;">
@@ -309,25 +310,25 @@ export default {
                         </div>
                     </div>
                     <div class="field" v-if="ms(dev.id || dev.device).provider !== 'ollama'">
-                        <label>API Key</label>
+                        <label>{{ t('agent.apikey.label') }}</label>
                         <input type="password"
                                :value="ms(dev.id || dev.device).api_key"
                                @input="setMsField(dev.id || dev.device, 'api_key', $event.target.value)"
                                placeholder="sk-..." />
                     </div>
                     <div class="field">
-                        <label>Prompt do sistema <span style="font-weight:normal; color:#888">(personalidade / instruções)</span></label>
+                        <label>{{ t('agent.systemprompt.label') }} <span style="font-weight:normal; color:#888">{{ t('agent.systemprompt.sub') }}</span></label>
                         <textarea rows="4"
                                   :value="ms(dev.id || dev.device).system_prompt"
                                   @input="setMsField(dev.id || dev.device, 'system_prompt', $event.target.value)"
-                                  placeholder="Ex: Você é um assistente amigável da empresa ACME. Responda sempre em português de forma concisa e educada."></textarea>
+                                  :placeholder="t('agent.systemprompt.placeholder')"></textarea>
                     </div>
                     <div class="field">
                         <div class="ui toggle checkbox">
                             <input type="checkbox"
                                    :checked="ms(dev.id || dev.device).enabled"
                                    @change="setMsField(dev.id || dev.device, 'enabled', $event.target.checked)" />
-                            <label>Agente habilitado (responde automaticamente às mensagens recebidas)</label>
+                            <label>{{ t('agent.enabled.label') }}</label>
                         </div>
                     </div>
 
@@ -344,20 +345,20 @@ export default {
                 <button class="ui red basic button" v-if="ag(dev.id || dev.device).agent"
                         @click="removeAgent(dev.id || dev.device)"
                         :class="{loading: ag(dev.id || dev.device).saving}" style="float:left">
-                    <i class="trash icon"></i> Remover
+                    <i class="trash icon"></i> {{ t('agent.btn.remove') }}
                 </button>
-                <button class="ui button" @click="closeModal(dev.id || dev.device)">Cancelar</button>
+                <button class="ui button" @click="closeModal(dev.id || dev.device)">{{ t('agent.btn.cancel') }}</button>
                 <button class="ui teal basic button"
                         @click="testAgent(dev.id || dev.device)"
                         :class="{loading: ag(dev.id || dev.device).testing}"
                         :disabled="!ms(dev.id || dev.device).api_url || !ms(dev.id || dev.device).model">
-                    <i class="flask icon"></i> Testar LLM
+                    <i class="flask icon"></i> {{ t('agent.btn.test') }}
                 </button>
                 <button class="ui primary button"
                         @click="saveAgent(dev.id || dev.device)"
                         :class="{loading: ag(dev.id || dev.device).saving}"
                         :disabled="!ms(dev.id || dev.device).api_url || !ms(dev.id || dev.device).model">
-                    <i class="save icon"></i> Salvar
+                    <i class="save icon"></i> {{ t('agent.btn.save') }}
                 </button>
             </div>
         </div>
