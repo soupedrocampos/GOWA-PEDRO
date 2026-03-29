@@ -78,7 +78,8 @@ export default {
                 this.stopCountdown();
                 showErrorInfo(error);
             }
-        }
+        },
+        t(key) { return window.i18n ? window.i18n.t(key) : key; }
     },
     beforeUnmount() {
         // Clean up timer when component is destroyed
@@ -90,7 +91,7 @@ export default {
             <a class="ui teal right ribbon label">App</a>
             <div class="header">Login</div>
             <div class="description">
-                Scan your QR code to access all API capabilities.
+                Escaneie o QR Code para conectar o dispositivo.
             </div>
         </div>
     </div>
@@ -99,24 +100,24 @@ export default {
     <div class="ui small modal" id="modalLogin">
         <i class="close icon"></i>
         <div class="header">
-            Login Whatsapp
+            Login WhatsApp
         </div>
         <div class="image content">
             <div class="ui medium image">
                 <img :src="login_link" alt="qrCodeLogin">
             </div>
             <div class="description">
-                <div class="ui header">Please scan to connect</div>
-                <p>Open Setting > Linked Devices > Link Device</p>
+                <div class="ui header">Aponte a câmera para conectar</div>
+                <p>Abra Configurações &gt; Dispositivos conectados &gt; Conectar dispositivo</p>
                 <div style="padding-top: 50px;">
-                    <i v-if="login_duration_sec > 0">QR Code expires in {{ login_duration_sec }} seconds (auto-refreshing)</i>
-                    <i v-else class="ui active inline">Refreshing QR Code...</i>
+                    <i v-if="login_duration_sec > 0">QR Code expira em {{ login_duration_sec }} segundos (atualizando automaticamente)</i>
+                    <i v-else class="ui active inline">Atualizando QR Code...</i>
                 </div>
             </div>
         </div>
         <div class="actions">
             <div class="ui approve positive right labeled icon button" @click="submitApi">
-                Refresh QR Code
+                Atualizar QR Code
                 <i class="refresh icon"></i>
             </div>
         </div>
