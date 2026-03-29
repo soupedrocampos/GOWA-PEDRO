@@ -116,6 +116,9 @@ export default {
             </div>
         </div>
         <div class="actions">
+            <div class="ui cancel button">
+                <i class="times icon"></i> Fechar
+            </div>
             <div class="ui approve positive right labeled icon button" @click="submitApi">
                 Atualizar QR Code
                 <i class="refresh icon"></i>

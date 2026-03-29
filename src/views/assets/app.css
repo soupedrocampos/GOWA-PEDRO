@@ -282,7 +282,7 @@ body {
 .ui.modal {
     border-radius: 20px !important;
     background-color: var(--message-background) !important;
-    overflow: hidden;
+    /* overflow: hidden removed — it clips Semantic UI's close icon */
 }
 
 .ui.modal > .header {
@@ -290,6 +290,21 @@ body {
     background: var(--gradient-start) !important;
     color: white !important;
     padding: 1.5em !important;
+}
+
+/* Modal close (X) icon — always visible above the colored header */
+.ui.modal > .close {
+    color: rgba(255, 255, 255, 0.85) !important;
+    top: 0.85rem !important;
+    right: 0.85rem !important;
+    font-size: 1.4em !important;
+    z-index: 10 !important;
+    transition: color 0.2s ease, transform 0.2s ease !important;
+}
+
+.ui.modal > .close:hover {
+    color: #ffffff !important;
+    transform: rotate(90deg) scale(1.15) !important;
 }
 
 .ui.modal > .actions {
