@@ -534,8 +534,6 @@
             DeviceManager, DeviceWebhook, AgentManager
         },
         delimiters: ['[[', ']]'],
-        // Expose $t inside every Vue component/template through app.config.globalProperties
-        setup() {},
         data() {
             return {
                 app_ws: null,
@@ -555,6 +553,7 @@
             },
         },
         methods: {
+            $t(key) { return window.i18n ? window.i18n.t(key) : key; },
             applyDeviceHeader(id) {
                 if (id) {
                     window.http.defaults.headers.common[DEVICE_ID_HEADER] = encodeURIComponent(id);
