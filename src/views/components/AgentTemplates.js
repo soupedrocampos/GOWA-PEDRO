@@ -12,11 +12,16 @@ export default {
             editingId: null,
             form: this.blankForm(),
             filterProvider: '',
-            providers: ['ollama', 'openai', 'groq', 'gemini', 'claude', 'custom'],
+            providers: ['ollama', 'openai', 'groq', 'grok', 'gemini', 'claude', 'custom'],
+            providerLabels: {
+                ollama: '🦙 Meta / Llama', openai: '🤖 ChatGPT', groq: '⚡ Groq',
+                grok: '🔥 Grok (xAI)', gemini: '♊ Gemini', claude: '🧠 Claude', custom: '⚙️ Custom',
+            },
             providerPresets: {
-                ollama:  { api_url: 'http://localhost:11434/v1', model: 'llama3.2',       api_key: '' },
-                openai:  { api_url: 'https://api.openai.com/v1', model: 'gpt-4o-mini',    api_key: '' },
-                groq:    { api_url: 'https://api.groq.com/openai/v1', model: 'llama-3.1-8b-instant', api_key: '' },
+                ollama:  { api_url: 'http://localhost:11434/v1', model: 'llama3.2',               api_key: '' },
+                openai:  { api_url: 'https://api.openai.com/v1', model: 'gpt-4o-mini',           api_key: '' },
+                groq:    { api_url: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile', api_key: '' },
+                grok:    { api_url: 'https://api.x.ai/v1', model: 'grok-3-mini',                api_key: '' },
                 gemini:  { api_url: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.0-flash', api_key: '' },
                 claude:  { api_url: 'https://api.anthropic.com/v1', model: 'claude-haiku-4-5-20251001', api_key: '' },
                 custom:  { api_url: '', model: '',               api_key: '' },
@@ -30,8 +35,8 @@ export default {
         },
         providerColors() {
             return {
-                ollama: '#21ba45', openai: '#2185d0', groq: '#f2711c',
-                gemini: '#4285f4', claude: '#c0392b', custom: '#a333c8',
+                ollama: '#21ba45', openai: '#10a37f', groq: '#f2711c',
+                grok: '#000000', gemini: '#4285f4', claude: '#d97706', custom: '#a333c8',
             };
         },
     },
@@ -46,6 +51,9 @@ export default {
                 system_prompt: '', temperature: 0.7, max_tokens: 0,
                 context_messages: 10, allow_groups: false, structured_output: false,
             };
+        },
+        providerLabel(p) {
+            return this.providerLabels[p] || p;
         },
         async load() {
             this.loading = true;
@@ -176,7 +184,7 @@ export default {
             <button v-for="p in providers" :key="p" class="ui mini button"
                     :style="filterProvider===p ? {background: providerColor(p), color:'#fff', borderRadius:'16px',fontSize:'0.72em'} : {borderRadius:'16px',fontSize:'0.72em'}"
                     @click="filterProvider = filterProvider===p ? '' : p"
-                    style="text-transform:capitalize">{{ p }}</button>
+                    >{{ providerLabel(p) }}</button>
         </div>
 
         <!-- New template anchor -->
@@ -197,8 +205,7 @@ export default {
                             :style="form.provider===p
                                 ? {background: providerColor(p), color:'#fff', fontWeight:'700', borderRadius:'10px', border:'none'}
                                 : {background:'#f3f4f6', color:'#4b5563', borderRadius:'10px', border:'none'}"
-                            @click="applyProviderPreset(p)"
-                            style="text-transform:capitalize">{{ p }}</button>
+                            @click="applyProviderPreset(p)">{{ providerLabel(p) }}</button>
                 </div>
             </div>
 
@@ -350,7 +357,7 @@ export default {
             <button v-for="p in providers" :key="p" class="ui tiny button"
                     :style="filterProvider===p ? {background: providerColor(p), color:'#fff', borderRadius:'20px'} : {borderRadius:'20px'}"
                     @click="filterProvider = filterProvider===p ? '' : p"
-                    style="text-transform:capitalize">{{ p }}</button>
+                    >{{ providerLabel(p) }}</button>
         </div>
 
         <!-- FORM (inline) -->
@@ -370,7 +377,7 @@ export default {
                                 ? {background: providerColor(p), color:'#fff', fontWeight:'700', boxShadow: '0 4px 10px rgba(0,0,0,0.1)'}
                                 : {background: '#f3f4f6', color: '#4b5563'}"
                             @click="applyProviderPreset(p)"
-                            style="text-transform:capitalize; border-radius:12px; border:none">{{ p }}</button>
+                            style="border-radius:12px; border:none">{{ providerLabel(p) }}</button>
                 </div>
             </div>
 

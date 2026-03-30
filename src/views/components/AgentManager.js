@@ -23,13 +23,29 @@ export default {
         },
         providerColors() {
             return {
-                ollama: '#21ba45', openai: '#2185d0', groq: '#f2711c',
-                gemini: '#4285f4', claude: '#c0392b', custom: '#a333c8',
+                ollama: '#21ba45', openai: '#10a37f', groq: '#f2711c',
+                grok: '#000000', gemini: '#4285f4', claude: '#d97706', custom: '#a333c8',
+            };
+        },
+        providerLabel() {
+            return {
+                ollama: 'Meta / Llama', openai: 'ChatGPT', groq: 'Groq',
+                grok: 'Grok (xAI)', gemini: 'Gemini', claude: 'Claude', custom: 'Custom',
+            };
+        },
+        providerEmoji() {
+            return {
+                ollama: '🦙', openai: '🤖', groq: '⚡',
+                grok: '🔥', gemini: '♊', claude: '🧠', custom: '⚙️',
             };
         },
         panelProviderColor() {
             return this.providerColors[this.panelForm.provider] || '#888';
         },
+        availableProviders() {
+            return ['ollama','openai','groq','grok','gemini','claude','custom'];
+        },
+
     },
     watch: {
         deviceList: {
@@ -123,15 +139,19 @@ export default {
         // ── Provider preset in panel
         async applyProviderPreset(provider) {
             const presets = {
-                ollama:  { api_url: 'http://localhost:11434/v1',                            model: 'llama3.2' },
-                openai:  { api_url: 'https://api.openai.com/v1',                            model: 'gpt-4o-mini' },
-                groq:    { api_url: 'https://api.groq.com/openai/v1',                       model: 'llama-3.1-8b-instant' },
-                gemini:  { api_url: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.0-flash' },
-                claude:  { api_url: 'https://api.anthropic.com/v1',                         model: 'claude-haiku-4-5-20251001' },
-                custom:  { api_url: '', model: '' },
+                ollama:  { api_url: 'http://localhost:11434/v1', model: 'llama3.2',                  api_key: '' },
+                openai:  { api_url: 'https://api.openai.com/v1', model: 'gpt-4o-mini',              api_key: '' },
+                groq:    { api_url: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile', api_key: '' },
+                grok:    { api_url: 'https://api.x.ai/v1', model: 'grok-3-mini',                   api_key: '' },
+                gemini:  { api_url: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.0-flash', api_key: '' },
+                claude:  { api_url: 'https://api.anthropic.com/v1', model: 'claude-haiku-4-5-20251001', api_key: '' },
+                custom:  { api_url: '', model: '', api_key: '' },
             };
-            const p = presets[provider] || presets.custom;
-            this.panelForm = { ...this.panelForm, provider, api_url: p.api_url, model: p.model };
+            const p = presets[provider] || {};
+            this.panelForm.provider = provider;
+            if (p.api_url) this.panelForm.api_url = p.api_url;
+            if (p.model)   this.panelForm.model   = p.model;
+            this.panelForm.api_key = '';
             this.selectedTemplateId = null;
             await this.loadTemplatesForProvider(provider);
         },
@@ -244,42 +264,72 @@ export default {
         },
         getModelsForProvider(provider) {
             const models = {
-                ollama:  ['llama3.2','llama3.1','llama3','mistral','gemma2','qwen2.5','phi3','deepseek-r1','llava'],
-                openai:  ['gpt-4o','gpt-4o-mini','gpt-4-turbo','gpt-4','gpt-3.5-turbo','o1-preview','o1-mini','o3-mini'],
-                groq:    ['llama-3.3-70b-versatile','llama-3.1-8b-instant','llama3-70b-8192','llama3-8b-8192','mixtral-8x7b-32768','gemma2-9b-it','deepseek-r1-distill-llama-70b'],
-                gemini:  ['gemini-2.0-flash','gemini-2.0-pro','gemini-1.5-flash','gemini-1.5-pro'],
-                claude:  ['claude-haiku-4-5-20251001','claude-sonnet-4-6','claude-opus-4-6'],
+                ollama:  ['llama3.2','llama3.1','llama3','llama4-scout','mistral','gemma2','qwen2.5','phi3','deepseek-r1','llava','llama-guard-4-12b'],
+                openai:  ['gpt-4.1','gpt-4.1-mini','gpt-4o','gpt-4o-mini','gpt-4-turbo','o1-preview','o1-mini','o3-mini','o3'],
+                groq:    ['llama-3.3-70b-versatile','llama-3.1-8b-instant','llama4-scout-17b-16e-instruct','llama4-maverick-17b-128e-instruct','llama-guard-4-12b','mixtral-8x7b-32768','gemma2-9b-it','deepseek-r1-distill-llama-70b','compound-beta','compound-beta-mini'],
+                grok:    ['grok-3','grok-3-mini','grok-3-fast','grok-3-mini-fast','grok-2-1212','grok-2-vision-1212'],
+                gemini:  ['gemini-2.5-pro','gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.0-flash','gemini-2.0-pro','gemini-1.5-flash','gemini-1.5-pro'],
+                claude:  ['claude-opus-4-6','claude-sonnet-4-6','claude-haiku-4-5-20251001','claude-3-5-sonnet-20241022','claude-3-5-haiku-20241022','claude-3-opus-20240229'],
             };
             return models[provider] || [];
         },
         getModelDescription(modelName) {
-            if (!modelName) return 'Select a model to see details.';
+            if (!modelName) return 'Selecione um modelo para ver detalhes.';
             const desc = {
-                'gpt-4o':                       'Fastest + smartest (OpenAI). ~$5/1M in | $15 out',
-                'gpt-4o-mini':                  'Smaller + cheap (OpenAI). ~$0.15/1M in | $0.60 out',
-                'gpt-4-turbo':                  'Complex reasoning. ~$10/1M in | $30 out',
-                'gpt-3.5-turbo':                'Legacy. ~$0.50/1M in | $1.50 out',
-                'o1-preview':                   'Advanced reasoning. ~$15/1M in | $60 out',
-                'o1-mini':                      'Fast reasoning. ~$3/1M in | $12 out',
-                'o3-mini':                      'Math/Code. ~$1.10/1M in | $4.40 out',
-                'llama-3.3-70b-versatile':      'Balanced 70B (Groq). ~$0.59/1M',
-                'llama-3.1-8b-instant':         'Super fast simple tasks (Groq). ~$0.05/1M',
-                'mixtral-8x7b-32768':           'Mixture arch efficiency (Groq). ~$0.24/1M',
-                'gemma2-9b-it':                 'Lightweight quality (Groq). ~$0.20/1M',
-                'deepseek-r1-distill-llama-70b':'High reasoning DeepSeek+Llama (Groq). ~$0.75/1M',
-                'gemini-2.0-flash':             'Flash-V2. Best balance (Google). ~$0.10/1M in',
-                'gemini-2.0-pro':               'Heavy reasoning (Google). ~$5.00/1M in',
-                'gemini-1.5-flash':             'Fast + cheap, 1M ctx (Google). ~$0.075/1M in',
-                'gemini-1.5-pro':               'Complex reasoning, huge ctx (Google). ~$3.50/1M in',
-                'claude-haiku-4-5-20251001':    'Fastest Anthropic. ~$0.25/1M in | $1.25 out',
-                'claude-sonnet-4-6':            'Top intelligence + speed (Anthropic). ~$3/1M in | $15 out',
-                'claude-opus-4-6':              'Most powerful Anthropic. ~$15/1M in | $75 out',
-                'llama3.2':  'Llama 3.2 local (Ollama). Free',
-                'llama3.1':  'Llama 3.1 local (Ollama). Free',
-                'deepseek-r1':'DeepSeek R1 reasoning (Ollama). Free',
+                // OpenAI / ChatGPT
+                'gpt-4.1':                    '⚡ Mais rápido e inteligente (OpenAI). Custo ~$2/1M in',
+                'gpt-4.1-mini':               '💰 Menor e bem barato (OpenAI). ~$0.40/1M in | $1.60 out',
+                'gpt-4o':                     '🧠 Equilíbrio poder+velocidade (OpenAI). ~$5/1M in',
+                'gpt-4o-mini':                '💰 Rápido e barato (OpenAI). ~$0.15/1M in',
+                'gpt-4-turbo':                '🔬 Raciocínio complexo (OpenAI). ~$10/1M in',
+                'o1-preview':                 '🔬 Raciocínio avançado. ~$15/1M in | $60 out',
+                'o1-mini':                    '⚡ Raciocínio rápido. ~$3/1M in | $12 out',
+                'o3-mini':                    '🔢 Math/Código. ~$1.10/1M in | $4.40 out',
+                'o3':                         '🧠 OpenAI mais poderoso. ~$10/1M in | $40 out',
+                // Groq
+                'llama-3.3-70b-versatile':      '⚖️ Equilíbrio 70B via Groq. ~$0.59/1M',
+                'llama-3.1-8b-instant':         '⚡ Ultrarápido tarefas simples (Groq). ~$0.05/1M',
+                'llama4-scout-17b-16e-instruct':'🦙 Llama 4 Scout — Multimodal, contexto longo. Groq',
+                'llama4-maverick-17b-128e-instruct':'🦙 Llama 4 Maverick — Alta capacidade. Groq',
+                'mixtral-8x7b-32768':           '🔀 Arquitetura MoE eficiente (Groq). ~$0.24/1M',
+                'gemma2-9b-it':                 '💡 Google Gemma leve (Groq). ~$0.20/1M',
+                'deepseek-r1-distill-llama-70b':'🔬 Raciocínio DeepSeek+Llama (Groq). ~$0.75/1M',
+                'llama-guard-4-12b':            '🛡️ Moderação de conteúdo (Meta). Groq',
+                'compound-beta':                '🔧 Agente com busca web + execução de código. Groq',
+                'compound-beta-mini':           '🔧 Compound menor e mais barato. Groq',
+                // Grok / xAI
+                'grok-3':                       '🔥 Grok 3 (xAI) — Raciocínio pesado. Dados X/Twitter',
+                'grok-3-mini':                  '⚡ Grok 3 Mini — Rápido e eficiente. xAI',
+                'grok-3-fast':                  '🚄 Grok 3 Fast — Ultra velocidade. xAI',
+                'grok-3-mini-fast':             '🚀 Grok 3 Mini Fast — Mais barato+rápido. xAI',
+                'grok-2-1212':                  '🔥 Grok 2 — Contexto 2M tokens! xAI',
+                'grok-2-vision-1212':           '🖼️ Grok 2 Vision — Imagem + Texto. xAI',
+                // Gemini
+                'gemini-2.5-pro':               '♊ Gemini 2.5 Pro — 1M tokens contexto. ~$1.25-5/1M',
+                'gemini-2.5-flash':             '⚡ Gemini 2.5 Flash — Custo-benefício. ~$0.15/1M in',
+                'gemini-2.5-flash-lite':        '💰 Gemini Flash Lite — O mais barato. ~$0.10/1M in',
+                'gemini-2.0-flash':             '⚡ Flash-V2 — Melhor equilíbrio (Google). ~$0.10/1M',
+                'gemini-2.0-pro':               '🧠 Raciocínio pesado (Google). ~$5/1M in',
+                'gemini-1.5-flash':             '💰 Rápido + barato, 1M ctx. ~$0.075/1M in',
+                'gemini-1.5-pro':               '🔬 Contexto enorme (Google). ~$3.50/1M in',
+                // Claude
+                'claude-opus-4-6':              '🧠 Mais poderoso Anthropic. ~$15/1M in | $75 out',
+                'claude-sonnet-4-6':            '⚖️ Inteligência + velocidade (Anthropic). ~$3/1M in',
+                'claude-haiku-4-5-20251001':    '⚡ Mais rápido Anthropic. ~$0.25/1M in | $1.25 out',
+                'claude-3-5-sonnet-20241022':   '⚖️ Claude 3.5 Sonnet — Excelente código. ~$3/1M in',
+                'claude-3-5-haiku-20241022':    '⚡ Claude 3.5 Haiku — Rápido e barato. ~$0.80/1M in',
+                'claude-3-opus-20240229':       '🧠 Claude 3 Opus — Raciocínio profundo. ~$15/1M in',
+                // Ollama (local)
+                'llama3.2':  '🦙 Llama 3.2 local (Meta/Ollama). Grátis',
+                'llama3.1':  '🦙 Llama 3.1 local (Meta/Ollama). Grátis',
+                'llama4-scout': '🦙 Llama 4 Scout local — Multimodal. Grátis',
+                'deepseek-r1': '🔬 DeepSeek R1 raciocínio (Ollama). Grátis',
+                'llava':     '🖼️ LLaVA visão+texto (Ollama). Grátis',
+                'llama-guard-4-12b': '🛡️ Moderação de conteúdo Meta. Grátis via Ollama',
             };
-            return desc[modelName] || 'Local/Custom model. Check provider pricing.';
+            return desc[modelName] || 'Modelo local/customizado. Veja preços do provedor.';
         },
+
         providerColor(p) {
             return this.providerColors[p] || '#888';
         },
@@ -394,14 +444,14 @@ export default {
                     1 — Select Provider
                 </div>
                 <div style="display:flex; flex-wrap:wrap; gap:5px">
-                    <button v-for="p in ['ollama','openai','groq','gemini','claude','custom']" :key="p"
+                    <button v-for="p in availableProviders" :key="p"
                             class="ui small button"
                             :style="panelForm.provider===p
                                 ? {background: providerColor(p), color:'#fff', fontWeight:'700', boxShadow: '0 4px 10px rgba(0,0,0,0.15)'}
                                 : {background: '#f3f4f6', color: '#4b5563'}"
                             @click="applyProviderPreset(p)"
-                            style="text-transform:capitalize; border-radius:12px; border:none">
-                        {{ p }}
+                            style="border-radius:12px; border:none">
+                        {{ (providerEmoji[p] || '') + ' ' + (providerLabel[p] || p) }}
                     </button>
                 </div>
             </div>
