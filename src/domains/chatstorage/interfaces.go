@@ -51,4 +51,21 @@ type IChatStorageRepository interface {
 
 	// Schema operations
 	InitializeSchema() error
+
+	// Device webhook operations
+	GetDeviceWebhook(deviceID string) (*DeviceWebhook, error)
+	UpsertDeviceWebhook(webhook *DeviceWebhook) error
+	DeleteDeviceWebhook(deviceID string) error
+
+	// Device LLM agent operations
+	GetDeviceAgent(deviceID string) (*DeviceAgent, error)
+	UpsertDeviceAgent(agent *DeviceAgent) error
+	DeleteDeviceAgent(deviceID string) error
+
+	// Agent template operations
+	ListAgentTemplates(provider string) ([]*AgentTemplate, error)
+	GetAgentTemplate(id int64) (*AgentTemplate, error)
+	CreateAgentTemplate(t *AgentTemplate) error
+	UpdateAgentTemplate(t *AgentTemplate) error
+	DeleteAgentTemplate(id int64) error
 }

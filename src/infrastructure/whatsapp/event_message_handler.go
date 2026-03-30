@@ -39,8 +39,11 @@ func handleMessage(ctx context.Context, evt *events.Message, chatStorageRepo dom
 	// Handle auto-reply if configured
 	handleAutoReply(ctx, evt, chatStorageRepo, client)
 
-	// Forward to webhook if configured
-	handleWebhookForward(ctx, evt, client)
+	// Forward to webhook if configured (global + per-device)
+	handleWebhookForward(ctx, evt, client, chatStorageRepo)
+
+	// Auto-reply via LLM agent if configured for this device
+	handleLLMAgent(ctx, evt, client, chatStorageRepo)
 }
 
 func buildMessageMetaParts(evt *events.Message) []string {
@@ -99,7 +102,7 @@ func handleAutoMarkRead(ctx context.Context, evt *events.Message, client *whatsm
 	}
 }
 
-func handleWebhookForward(ctx context.Context, evt *events.Message, client *whatsmeow.Client) {
+func handleWebhookForward(ctx context.Context, evt *events.Message, client *whatsmeow.Client, chatStorageRepo domainChatStorage.IChatStorageRepository) {
 	// Skip webhook for protocol messages that are internal sync messages
 	if protocolMessage := evt.Message.GetProtocolMessage(); protocolMessage != nil {
 		protocolType := protocolMessage.GetType().String()
@@ -114,8 +117,12 @@ func handleWebhookForward(ctx context.Context, evt *events.Message, client *what
 		}
 	}
 
-	if (len(config.WhatsappWebhook) > 0 || config.ChatwootEnabled) &&
-		!strings.Contains(evt.Info.SourceString(), "broadcast") {
+	if strings.Contains(evt.Info.SourceString(), "broadcast") {
+		return
+	}
+
+	// Dispatch to global webhooks + Chatwoot (existing behaviour)
+	if len(config.WhatsappWebhook) > 0 || config.ChatwootEnabled {
 		go func(e *events.Message, c *whatsmeow.Client) {
 			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
@@ -124,4 +131,35 @@ func handleWebhookForward(ctx context.Context, evt *events.Message, client *what
 			}
 		}(evt, client)
 	}
+
+	// Dispatch to per-device webhook (n8n integration)
+	if chatStorageRepo == nil || client == nil || client.Store == nil || client.Store.ID == nil {
+		return
+	}
+	deviceID := client.Store.ID.ToNonAD().String()
+	wh, err := chatStorageRepo.GetDeviceWebhook(deviceID)
+	if err != nil {
+		log.Warnf("Failed to load device webhook for %s: %v", deviceID, err)
+		return
+	}
+	if wh == nil || !wh.Enabled || wh.URL == "" {
+		return
+	}
+	go func(e *events.Message, c *whatsmeow.Client, webhookURL string) {
+		webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		webhookEvent, buildErr := createWebhookEvent(webhookCtx, c, e)
+		if buildErr != nil {
+			logrus.Errorf("Failed to build device webhook event: %v", buildErr)
+			return
+		}
+		payload := map[string]any{
+			"event":     webhookEvent.Event,
+			"device_id": webhookEvent.DeviceID,
+			"payload":   webhookEvent.Payload,
+		}
+		if err := submitWebhook(webhookCtx, payload, webhookURL); err != nil {
+			logrus.Errorf("Failed to forward to device webhook %s: %v", webhookURL, err)
+		}
+	}(evt, client, wh.URL)
 }

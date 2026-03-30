@@ -201,12 +201,12 @@ body {
 }
 
 .ui.horizontal.divider {
-    font-size: 1.3em !important;
+    font-size: 1.1em !important;
     color: var(--secondary-color) !important;
-    margin: 2.5em 0 !important;
+    margin: 2em 0 !important;
     font-weight: 700 !important;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
 }
 
 .ui.success.message {
@@ -227,16 +227,25 @@ body {
 .ui.button {
     border-radius: 12px !important;
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-    /* background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important; */
-    /* background: var(--primary-color) !important; */
-    color: white !important;
     font-weight: 600 !important;
     letter-spacing: 0.5px;
 }
 
+/* Only force white text on colored buttons */
+.ui.primary.button, 
+.ui.secondary.button, 
+.ui.teal.button, 
+.ui.green.button, 
+.ui.red.button, 
+.ui.blue.button, 
+.ui.positive.button, 
+.ui.negative.button {
+    color: white !important;
+}
+
 .ui.button:hover {
-    transform: translateY(-3px) !important;
-    box-shadow: 0 8px 16px rgba(0, 173, 216, 0.2) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
     filter: brightness(0.95);
 }
 

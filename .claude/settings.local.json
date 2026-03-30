@@ -3,7 +3,29 @@
     "allow": [
       "Bash(gh auth:*)",
       "Bash(gh api:*)",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2\\)\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2\\)\\)\")",
+      "Read(//c/Users/pacc1/Documents/Antigravity/ROBIT/TESTE 2 - GOWA/**)",
+      "Bash(/dev/null --include=*.go -l)",
+      "Read(//c/Users/pacc1/Documents/Antigravity/ROBIT/**)",
+      "Bash(find 'c:/Users/pacc1/Documents/Antigravity/ROBIT/TESTE 2 - GOWA/go-whatsapp-web-multidevice/src/storages' -name *.go)",
+      "Bash(xargs grep:*)",
+      "Bash(go build:*)",
+      "Bash(\"c:/Users/pacc1/Documents/Antigravity/ROBIT/TESTE 2:*)",
+      "Bash(grep -n \"func submitWebhook\" \"/c/Users/pacc1/Documents/Antigravity/ROBIT/TESTE 2 - GOWA/go-whatsapp-web-multidevice/go-whatsapp-web-multidevice/src/infrastructure/whatsapp/\"*.go)",
+      "Bash(grep -n \"forwardMessageToWebhook\\\\|forwardDeleteToWebhook\\\\|forwardReceiptToWebhook\" \"/c/Users/pacc1/Documents/Antigravity/ROBIT/TESTE 2 - GOWA/go-whatsapp-web-multidevice/go-whatsapp-web-multidevice/src/infrastructure/whatsapp/\"*.go)",
+      "Bash(grep \"\\\\.go$\")",
+      "Bash(grep -o 'template: \\\\`' c:Userspacc1DocumentsAntigravityROBITTESTE 2 - GOWAgo-whatsapp-web-multidevicesrcviewscomponents/*.js)",
+      "Bash(grep -E \"Send Message|Send Image|Login|Logout|Dashboard|Device|Create|Delete|Update|Save\" c:Userspacc1DocumentsAntigravityROBITTESTE 2 - GOWAgo-whatsapp-web-multidevicesrcviewscomponents/*.js)",
+      "Bash(docker compose:*)",
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(curl -s http://localhost:3001/)",
+      "Bash(curl -s http://localhost:3001/components/AgentManager.js)",
+      "Read(//c/Users/pacc1/.gemini/antigravity/brain/af97db47-7fab-4867-8236-de067b2a1216/**)",
+      "Bash(find \"c:\\\\Users\\\\pacc1\\\\Documents\\\\Antigravity\\\\ROBIT\\\\TESTE 2 - GOWA\\\\go-whatsapp-web-multidevice\\\\src\" -name \"*.go\" -exec wc -l {} +)",
+      "Read(//c/Users/pacc1/Documents/Antigravity/ROBIT/TESTE 2 - GOWA/go-whatsapp-web-multidevice/**)",
+      "Bash(find \"c:\\\\Users\\\\pacc1\\\\Documents\\\\Antigravity\\\\ROBIT\\\\TESTE 2 - GOWA\\\\go-whatsapp-web-multidevice\\\\src\" -name \"*.go\" -exec wc -l {})",
+      "Bash(grep -r \"TODO\\\\|FIXME\\\\|XXX\\\\|HACK\" 'c:\\\\Users\\\\pacc1\\\\Documents\\\\Antigravity\\\\ROBIT\\\\TESTE 2 - GOWA\\\\go-whatsapp-web-multidevice\\\\src' --include=*.go)",
+      "Bash(wc -l \"c:\\\\Users\\\\pacc1\\\\Documents\\\\Antigravity\\\\ROBIT\\\\TESTE 2 - GOWA\\\\go-whatsapp-web-multidevice\\\\src\\\\infrastructure\\\\whatsapp\\\\event_\"*)"
     ]
   }
 }

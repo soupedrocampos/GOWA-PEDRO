@@ -174,3 +174,47 @@ func (r *DeviceRepository) GetDeviceRecord(deviceID string) (*domainChatStorage.
 func (r *DeviceRepository) DeleteDeviceRecord(deviceID string) error {
 	return r.base.DeleteDeviceRecord(deviceID)
 }
+
+func (r *DeviceRepository) GetDeviceWebhook(deviceID string) (*domainChatStorage.DeviceWebhook, error) {
+	return r.base.GetDeviceWebhook(deviceID)
+}
+
+func (r *DeviceRepository) UpsertDeviceWebhook(webhook *domainChatStorage.DeviceWebhook) error {
+	return r.base.UpsertDeviceWebhook(webhook)
+}
+
+func (r *DeviceRepository) DeleteDeviceWebhook(deviceID string) error {
+	return r.base.DeleteDeviceWebhook(deviceID)
+}
+
+func (r *DeviceRepository) GetDeviceAgent(deviceID string) (*domainChatStorage.DeviceAgent, error) {
+	return r.base.GetDeviceAgent(deviceID)
+}
+
+func (r *DeviceRepository) UpsertDeviceAgent(agent *domainChatStorage.DeviceAgent) error {
+	return r.base.UpsertDeviceAgent(agent)
+}
+
+func (r *DeviceRepository) DeleteDeviceAgent(deviceID string) error {
+	return r.base.DeleteDeviceAgent(deviceID)
+}
+
+func (r *DeviceRepository) ListAgentTemplates(provider string) ([]*domainChatStorage.AgentTemplate, error) {
+	return r.base.ListAgentTemplates(provider)
+}
+
+func (r *DeviceRepository) GetAgentTemplate(id int64) (*domainChatStorage.AgentTemplate, error) {
+	return r.base.GetAgentTemplate(id)
+}
+
+func (r *DeviceRepository) CreateAgentTemplate(t *domainChatStorage.AgentTemplate) error {
+	return r.base.CreateAgentTemplate(t)
+}
+
+func (r *DeviceRepository) UpdateAgentTemplate(t *domainChatStorage.AgentTemplate) error {
+	return r.base.UpdateAgentTemplate(t)
+}
+
+func (r *DeviceRepository) DeleteAgentTemplate(id int64) error {
+	return r.base.DeleteAgentTemplate(id)
+}

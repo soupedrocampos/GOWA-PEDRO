@@ -1,19 +1,35 @@
 export default {
     name: 'AgentManager',
     props: {
-        deviceList: {
-            type: Array,
-            default: () => []
-        }
+        deviceList: { type: Array, default: () => [] }
     },
     data() {
         return {
-            // agentState: deviceId -> { agent, mode, loading, saving, testing, testResult, testMessage }
-            agentState: {},
-            // modal form state per device
-            modalState: {},
-            activeModalDevice: null,
-        }
+            agentState:      {},   // deviceId → { agent, loading, saving, testing, testResult, testMessage }
+            selectedDevice:  null, // highlighted device card
+            configuringDevice: null, // device whose config panel is open
+            panelForm: this.blankForm(),
+            panelTemplates: [],       // templates loaded for the panel's selected provider
+            loadingTemplates: false,
+            selectedTemplateId: null, // null = custom
+        };
+    },
+    computed: {
+        sortedDeviceList() {
+            if (!this.selectedDevice) return this.deviceList;
+            const sel = this.deviceList.find(d => (d.id || d.device) === this.selectedDevice);
+            const rest = this.deviceList.filter(d => (d.id || d.device) !== this.selectedDevice);
+            return sel ? [sel, ...rest] : this.deviceList;
+        },
+        providerColors() {
+            return {
+                ollama: '#21ba45', openai: '#2185d0', groq: '#f2711c',
+                gemini: '#4285f4', claude: '#c0392b', custom: '#a333c8',
+            };
+        },
+        panelProviderColor() {
+            return this.providerColors[this.panelForm.provider] || '#888';
+        },
     },
     watch: {
         deviceList: {
@@ -29,176 +45,249 @@ export default {
         }
     },
     methods: {
+        blankForm() {
+            return {
+                provider: 'ollama',
+                api_url: 'http://localhost:11434/v1',
+                api_key: '',
+                model: 'llama3.2',
+                system_prompt: '',
+                enabled: true,
+                temperature: 0.7,
+                max_tokens: 0,
+                context_messages: 10,
+                allow_groups: false,
+                structured_output: false,
+            };
+        },
         ag(deviceId) {
-            return this.agentState[deviceId] || { agent: null, mode: 'none', loading: false, saving: false, testing: false, testResult: null, testMessage: '' };
-        },
-        ms(deviceId) {
-            return this.modalState[deviceId] || this.defaultModalState();
-        },
-        defaultModalState() {
-            return { provider: 'ollama', api_url: 'http://localhost:11434/v1', api_key: '', model: 'llama3.2', system_prompt: '', enabled: true };
+            return this.agentState[deviceId] || { agent: null, loading: false, saving: false, testing: false, testResult: null, testMessage: '' };
         },
         async loadAgent(deviceId) {
             this.agentState = { ...this.agentState, [deviceId]: { ...this.ag(deviceId), loading: true } };
             try {
                 const res = await window.http.get(`/devices/${deviceId}/agent`);
                 const agent = res.data.results || null;
-                const mode = agent ? 'llm' : 'none';
-                this.agentState = { ...this.agentState, [deviceId]: { agent, mode, loading: false, saving: false, testing: false, testResult: null, testMessage: '' } };
+                this.agentState = { ...this.agentState, [deviceId]: { agent, loading: false, saving: false, testing: false, testResult: null, testMessage: '' } };
             } catch {
-                this.agentState = { ...this.agentState, [deviceId]: { agent: null, mode: 'none', loading: false, saving: false, testing: false, testResult: null, testMessage: '' } };
+                this.agentState = { ...this.agentState, [deviceId]: { agent: null, loading: false, saving: false, testing: false, testResult: null, testMessage: '' } };
             }
         },
-        openModal(deviceId) {
-            const state = this.ag(deviceId);
-            const agent = state.agent;
-            this.modalState = {
-                ...this.modalState,
-                [deviceId]: agent ? {
-                    provider: agent.provider || 'ollama',
-                    api_url: agent.api_url || 'http://localhost:11434/v1',
-                    api_key: agent.api_key || '',
-                    model: agent.model || 'llama3.2',
-                    system_prompt: agent.system_prompt || '',
-                    enabled: agent.enabled !== false,
-                } : this.defaultModalState()
-            };
-            this.activeModalDevice = deviceId;
+
+        // ── Device card click (highlight / deselect)
+        selectDevice(deviceId) {
+            this.selectedDevice = this.selectedDevice === deviceId ? null : deviceId;
+        },
+
+        // ── Open inline config panel for a device
+        async openConfig(deviceId) {
+            this.configuringDevice = deviceId;
+            this.selectedTemplateId = null;
+            const ag = this.ag(deviceId);
+            if (ag.agent) {
+                // Pre-fill from existing agent
+                // api_key is NOT pre-filled — GET returns only api_key_masked for safety.
+                // Leave blank = keep existing key on the server.
+                const a = ag.agent;
+                this.panelForm = {
+                    provider: a.provider || 'ollama',
+                    api_url: a.api_url || '',
+                    api_key: '',  // intentionally blank; backend preserves existing key when empty
+                    _api_key_set: a.api_key_set || false,
+                    _api_key_masked: a.api_key_masked || '',
+                    model: a.model || '',
+                    system_prompt: a.system_prompt || '',
+                    enabled: a.enabled !== false,
+                    temperature: a.temperature ?? 0.7,
+                    max_tokens: a.max_tokens ?? 0,
+                    context_messages: a.context_messages ?? 10,
+                    allow_groups: a.allow_groups ?? false,
+                    structured_output: a.structured_output ?? false,
+                };
+            } else {
+                this.panelForm = this.blankForm();
+            }
+            await this.loadTemplatesForProvider(this.panelForm.provider);
+            // scroll panel into view
             this.$nextTick(() => {
-                window.$(`#agentModal_${deviceId}`).modal({
-                    closable: false,
-                    onHidden: () => { this.activeModalDevice = null; }
-                }).modal('show');
+                const el = document.getElementById('agent-config-panel');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
         },
-        closeModal(deviceId) {
-            window.$(`#agentModal_${deviceId}`).modal('hide');
+        closeConfig() {
+            this.configuringDevice = null;
+            this.selectedTemplateId = null;
+            this.panelTemplates = [];
         },
-        setMsField(deviceId, field, value) {
-            const current = this.ms(deviceId);
-            this.modalState = { ...this.modalState, [deviceId]: { ...current, [field]: value } };
-        },
-        applyProviderPreset(deviceId, provider) {
+
+        // ── Provider preset in panel
+        async applyProviderPreset(provider) {
             const presets = {
-                ollama: { api_url: 'http://localhost:11434/v1', api_key: '', model: 'llama3.2' },
-                openai: { api_url: 'https://api.openai.com/v1', api_key: '', model: 'gpt-4o-mini' },
-                groq: { api_url: 'https://api.groq.com/openai/v1', api_key: '', model: 'llama-3.1-8b-instant' },
-                gemini: { api_url: 'https://generativelanguage.googleapis.com/v1beta/openai/', api_key: '', model: 'gemini-1.5-flash' },
-                claude: { api_url: 'https://api.anthropic.com/v1', api_key: '', model: 'claude-3-5-sonnet-20241022' },
-                custom: { api_url: '', api_key: '', model: '' },
+                ollama:  { api_url: 'http://localhost:11434/v1',                            model: 'llama3.2' },
+                openai:  { api_url: 'https://api.openai.com/v1',                            model: 'gpt-4o-mini' },
+                groq:    { api_url: 'https://api.groq.com/openai/v1',                       model: 'llama-3.1-8b-instant' },
+                gemini:  { api_url: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.0-flash' },
+                claude:  { api_url: 'https://api.anthropic.com/v1',                         model: 'claude-haiku-4-5-20251001' },
+                custom:  { api_url: '', model: '' },
             };
-            const preset = presets[provider] || presets.custom;
-            const current = this.ms(deviceId);
-            this.modalState = { ...this.modalState, [deviceId]: { ...current, provider, ...preset } };
+            const p = presets[provider] || presets.custom;
+            this.panelForm = { ...this.panelForm, provider, api_url: p.api_url, model: p.model };
+            this.selectedTemplateId = null;
+            await this.loadTemplatesForProvider(provider);
         },
-        getModelsForProvider(provider) {
-            const models = {
-                ollama: ['llama3.2', 'llama3.1', 'llama3', 'mistral', 'gemma2', 'qwen2.5', 'phi3', 'deepseek-r1', 'llava'],
-                openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo', 'o1-preview', 'o1-mini', 'o3-mini'],
-                groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'llama3-70b-8192', 'llama3-8b-8192', 'mixtral-8x7b-32768', 'gemma2-9b-it', 'deepseek-r1-distill-llama-70b'],
-                gemini: ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash', 'gemini-2.0-pro'],
-                claude: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229']
+
+        async loadTemplatesForProvider(provider) {
+            this.loadingTemplates = true;
+            try {
+                const res = await window.http.get(`/agent-templates?provider=${provider}`);
+                this.panelTemplates = res.data.results || [];
+            } catch {
+                this.panelTemplates = [];
+            } finally {
+                this.loadingTemplates = false;
+            }
+        },
+
+        // ── Apply a template to the panel form
+        applyTemplate(tpl) {
+            this.selectedTemplateId = tpl.id;
+            this.panelForm = {
+                provider:         tpl.provider,
+                api_url:          tpl.api_url,
+                api_key:          tpl.api_key || '',
+                model:            tpl.model,
+                system_prompt:    tpl.system_prompt || '',
+                enabled:          true,
+                temperature:      tpl.temperature ?? 0.7,
+                max_tokens:       tpl.max_tokens ?? 0,
+                context_messages: tpl.context_messages ?? 10,
+                allow_groups:     tpl.allow_groups ?? false,
+                structured_output: tpl.structured_output ?? false,
             };
-            return models[provider] || [];
         },
-        getModelDescription(modelName) {
-            if (!modelName) return 'Selecione um modelo para ver os detalhes.';
-            const desc = {
-                'gpt-4o': 'Mais rápido e inteligente (OpenAI). Custo: ~ $5 / 1M tokens (In) | $15 (Out)',
-                'gpt-4o-mini': 'Versão menor e mais barata (OpenAI). Custo: ~ $0.15 / 1M tokens (In) | $0.60 (Out)',
-                'gpt-4-turbo': 'Poderoso para raciocínio complexo. Custo: ~ $10 / 1M tokens (In) | $30 (Out)',
-                'gpt-4': 'Legado. Forte em raciocínio, porém mais caro. Custo: ~ $30 / 1M tokens (In) | $60 (Out)',
-                'gpt-3.5-turbo': 'Rápido, mas superado pelo gpt-4o-mini. Custo: ~ $0.50 / 1M tokens (In) | $1.50 (Out)',
-                'o1-preview': 'Foco em raciocínio avançado. Custo: ~ $15 / 1M tokens (In) | $60 (Out)',
-                'o1-mini': 'Raciocínio avançado rápido/barato. Custo: ~ $3 / 1M tokens (In) | $12 (Out)',
-                'o3-mini': 'Raciocínio rápido (Math/Code). Custo: ~ $1.10 / 1M tokens (In) | $4.40 (Out)',
-                'llama-3.3-70b-versatile': 'Equilíbrio e versatilidade 70B (Groq). Custo: ~$0.59 / 1M tokens',
-                'llama-3.1-8b-instant': 'Super rápido para tarefas simples (Groq). Custo: ~$0.05 / 1M tokens',
-                'mixtral-8x7b-32768': 'Alta eficiência com arquitetura mista (Groq). Custo: ~$0.24 / 1M tokens',
-                'gemma2-9b-it': 'Ótima qualidade em modelo leve (Groq). Custo: ~$0.20 / 1M tokens',
-                'deepseek-r1-distill-llama-70b': 'Alto raciocínio DeepSeek+Llama (Groq). Custo: ~$0.75 / 1M tokens',
-                'gemini-1.5-flash': 'Rápido e barato. Contexto de até 1 Milhão (Google). Custo: ~ $0.075 / 1M tokens (In)',
-                'gemini-1.5-pro': 'Lida com raciocínio complexo. Contexto enorme (Google). Custo: ~ $3.50 / 1M tokens (In)',
-                'gemini-2.0-flash': 'Flash-V2. Excelente balanceamento (Google). Custo: ~ $0.10 / 1M tokens (In)',
-                'gemini-2.0-pro': 'Trabalho analítico avançado e raciocínio pesado (Google). Custo: ~ $5.00 / 1M tokens',
-                'claude-3-5-sonnet-20241022': 'Inteligência top com excelente velocidade. Ótimo em Código (Anthropic). Custo: ~ $3 / 1M tokens (In) | $15 (Out)',
-                'claude-3-5-haiku-20241022': 'O mais rápido da Anthropic. Custo: ~ $0.25 / 1M tokens (In) | $1.25 (Out)',
-                'claude-3-opus-20240229': 'Poderoso para tarefas complexas. Custo: ~ $15 / 1M tokens (In) | $75 (Out)',
-                'llama3.2': 'Llama 3.2 local (Ollama). Custo: Zero',
-                'llama3.1': 'Llama 3.1 local (Ollama). Custo: Zero',
-                'deepseek-r1': 'DeepSeek R1 com raciocínio ChainOfThought (Ollama). Custo: Zero'
-            };
-            return desc[modelName] || 'Local / Custom model. Consulte as tabelas do provedor para obter preços atualizados.';
+        clearTemplate() {
+            this.selectedTemplateId = null;
         },
-        async saveAgent(deviceId) {
-            const form = this.ms(deviceId);
-            if (!form.api_url.trim()) { showErrorInfo('Informe a API URL'); return; }
-            if (!form.model.trim()) { showErrorInfo('Informe o modelo'); return; }
+
+        // ── Save / Remove / Test
+        async saveAgent() {
+            const deviceId = this.configuringDevice;
+            const form = this.panelForm;
+            if (!form.api_url.trim()) { showErrorInfo('Please enter the API URL'); return; }
+            if (!form.model.trim())   { showErrorInfo('Please enter the model'); return; }
 
             this.agentState = { ...this.agentState, [deviceId]: { ...this.ag(deviceId), saving: true, testResult: null } };
             try {
                 await window.http.post(`/devices/${deviceId}/agent`, {
-                    provider: form.provider,
-                    api_url: form.api_url.trim(),
-                    api_key: form.api_key.trim(),
-                    model: form.model.trim(),
-                    system_prompt: form.system_prompt,
-                    enabled: form.enabled,
+                    provider:         form.provider,
+                    api_url:          form.api_url.trim(),
+                    api_key:          form.api_key.trim(),
+                    model:            form.model.trim(),
+                    system_prompt:    form.system_prompt,
+                    enabled:          form.enabled,
+                    temperature:      parseFloat(form.temperature) || 0.7,
+                    max_tokens:       parseInt(form.max_tokens) || 0,
+                    context_messages: parseInt(form.context_messages) || 0,
+                    allow_groups:     form.allow_groups,
+                    structured_output: form.structured_output,
                 });
-                showSuccessInfo('Agente LLM salvo!');
+                showSuccessInfo('Agent saved!');
                 await this.loadAgent(deviceId);
-                this.closeModal(deviceId);
+                this.closeConfig();
             } catch (e) {
-                showErrorInfo(e.response?.data?.message || 'Falha ao salvar agente');
+                showErrorInfo(e.response?.data?.message || 'Failed to save agent');
                 this.agentState = { ...this.agentState, [deviceId]: { ...this.ag(deviceId), saving: false } };
             }
         },
-        async removeAgent(deviceId) {
-            if (!confirm('Remover agente LLM deste dispositivo?')) return;
+        async removeAgent() {
+            const deviceId = this.configuringDevice;
+            if (!confirm('Remove LLM agent from this device?')) return;
             this.agentState = { ...this.agentState, [deviceId]: { ...this.ag(deviceId), saving: true } };
             try {
                 await window.http.delete(`/devices/${deviceId}/agent`);
-                showSuccessInfo('Agente removido');
+                showSuccessInfo('Agent removed');
                 await this.loadAgent(deviceId);
-                this.closeModal(deviceId);
+                this.closeConfig();
             } catch (e) {
-                showErrorInfo(e.response?.data?.message || 'Falha ao remover agente');
+                showErrorInfo(e.response?.data?.message || 'Failed to remove');
                 this.agentState = { ...this.agentState, [deviceId]: { ...this.ag(deviceId), saving: false } };
             }
         },
-        async testAgent(deviceId) {
-            const form = this.ms(deviceId);
-            if (!form.api_url.trim()) { showErrorInfo('Informe a API URL antes de testar'); return; }
-            if (!form.model.trim()) { showErrorInfo('Informe o modelo antes de testar'); return; }
+        async testAgent() {
+            const deviceId = this.configuringDevice;
+            const form = this.panelForm;
+            if (!form.api_url.trim()) { showErrorInfo('Enter the API URL before testing'); return; }
+            if (!form.model.trim())   { showErrorInfo('Enter the model before testing'); return; }
 
             this.agentState = { ...this.agentState, [deviceId]: { ...this.ag(deviceId), testing: true, testResult: null, testMessage: '' } };
             try {
                 const res = await window.http.post(`/devices/${deviceId}/agent/test`, {
-                    api_url: form.api_url.trim(),
-                    api_key: form.api_key.trim(),
-                    model: form.model.trim(),
+                    provider: form.provider,
+                    api_url:  form.api_url.trim(),
+                    api_key:  form.api_key.trim(),
+                    model:    form.model.trim(),
                 }, { timeout: 35000 });
                 const code = res.data?.code;
-                const msg = res.data?.message || '';
+                const msg  = res.data?.message || '';
                 this.agentState = { ...this.agentState, [deviceId]: {
-                    ...this.ag(deviceId),
-                    testing: false,
+                    ...this.ag(deviceId), testing: false,
                     testResult: code === 'SUCCESS' ? 'ok' : 'error',
                     testMessage: msg,
                 }};
             } catch (e) {
                 this.agentState = { ...this.agentState, [deviceId]: {
-                    ...this.ag(deviceId),
-                    testing: false,
+                    ...this.ag(deviceId), testing: false,
                     testResult: 'error',
-                    testMessage: e.response?.data?.message || 'Falha ao contatar o LLM.',
+                    testMessage: e.response?.data?.message || 'Failed to contact the LLM.',
                 }};
             }
         },
-        t(key) { return window.i18n ? window.i18n.t(key) : key; }
+        getModelsForProvider(provider) {
+            const models = {
+                ollama:  ['llama3.2','llama3.1','llama3','mistral','gemma2','qwen2.5','phi3','deepseek-r1','llava'],
+                openai:  ['gpt-4o','gpt-4o-mini','gpt-4-turbo','gpt-4','gpt-3.5-turbo','o1-preview','o1-mini','o3-mini'],
+                groq:    ['llama-3.3-70b-versatile','llama-3.1-8b-instant','llama3-70b-8192','llama3-8b-8192','mixtral-8x7b-32768','gemma2-9b-it','deepseek-r1-distill-llama-70b'],
+                gemini:  ['gemini-2.0-flash','gemini-2.0-pro','gemini-1.5-flash','gemini-1.5-pro'],
+                claude:  ['claude-haiku-4-5-20251001','claude-sonnet-4-6','claude-opus-4-6'],
+            };
+            return models[provider] || [];
+        },
+        getModelDescription(modelName) {
+            if (!modelName) return 'Select a model to see details.';
+            const desc = {
+                'gpt-4o':                       'Fastest + smartest (OpenAI). ~$5/1M in | $15 out',
+                'gpt-4o-mini':                  'Smaller + cheap (OpenAI). ~$0.15/1M in | $0.60 out',
+                'gpt-4-turbo':                  'Complex reasoning. ~$10/1M in | $30 out',
+                'gpt-3.5-turbo':                'Legacy. ~$0.50/1M in | $1.50 out',
+                'o1-preview':                   'Advanced reasoning. ~$15/1M in | $60 out',
+                'o1-mini':                      'Fast reasoning. ~$3/1M in | $12 out',
+                'o3-mini':                      'Math/Code. ~$1.10/1M in | $4.40 out',
+                'llama-3.3-70b-versatile':      'Balanced 70B (Groq). ~$0.59/1M',
+                'llama-3.1-8b-instant':         'Super fast simple tasks (Groq). ~$0.05/1M',
+                'mixtral-8x7b-32768':           'Mixture arch efficiency (Groq). ~$0.24/1M',
+                'gemma2-9b-it':                 'Lightweight quality (Groq). ~$0.20/1M',
+                'deepseek-r1-distill-llama-70b':'High reasoning DeepSeek+Llama (Groq). ~$0.75/1M',
+                'gemini-2.0-flash':             'Flash-V2. Best balance (Google). ~$0.10/1M in',
+                'gemini-2.0-pro':               'Heavy reasoning (Google). ~$5.00/1M in',
+                'gemini-1.5-flash':             'Fast + cheap, 1M ctx (Google). ~$0.075/1M in',
+                'gemini-1.5-pro':               'Complex reasoning, huge ctx (Google). ~$3.50/1M in',
+                'claude-haiku-4-5-20251001':    'Fastest Anthropic. ~$0.25/1M in | $1.25 out',
+                'claude-sonnet-4-6':            'Top intelligence + speed (Anthropic). ~$3/1M in | $15 out',
+                'claude-opus-4-6':              'Most powerful Anthropic. ~$15/1M in | $75 out',
+                'llama3.2':  'Llama 3.2 local (Ollama). Free',
+                'llama3.1':  'Llama 3.1 local (Ollama). Free',
+                'deepseek-r1':'DeepSeek R1 reasoning (Ollama). Free',
+            };
+            return desc[modelName] || 'Local/Custom model. Check provider pricing.';
+        },
+        providerColor(p) {
+            return this.providerColors[p] || '#888';
+        },
+        t(key) { return window.i18n ? window.i18n.t(key) : key; },
     },
     template: `
 <div>
+    <!-- Empty state -->
     <div v-if="deviceList.length === 0" class="ui placeholder segment" style="border-radius:10px; border:2px dashed #d1d5db">
         <div class="ui icon header" style="color:#9ca3af">
             <i class="mobile alternate icon"></i>
@@ -207,163 +296,284 @@ export default {
         <p style="color:#6b7280; font-size:0.9rem">{{ t('agent.nodevices.hint') }}</p>
     </div>
 
-    <div v-for="dev in deviceList" :key="dev.id || dev.device"
-         style="border:1px solid #e0e0e0; border-radius:8px; padding:14px 16px; margin-bottom:12px; background:#fafafa">
+    <!-- Device cards -->
+    <div v-for="dev in sortedDeviceList" :key="dev.id || dev.device"
+         :style="{
+             border: selectedDevice === (dev.id || dev.device) ? '2px solid #21ba45' : '1px solid #e0e0e0',
+             borderRadius: '8px',
+             padding: '14px 16px',
+             marginBottom: '10px',
+             background: selectedDevice === (dev.id || dev.device) ? '#f0fdf4' : '#fafafa',
+             cursor: 'pointer',
+             transition: 'border-color .15s, background .15s'
+         }"
+         @click.self="selectDevice(dev.id || dev.device)">
 
-        <!-- Device header -->
-        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px">
+        <!-- Device header row -->
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px"
+             @click="selectDevice(dev.id || dev.device)">
             <div style="display:flex; align-items:center; gap:10px">
-                <i class="mobile alternate icon" style="font-size:1.3em; color:#555"></i>
+                <i class="mobile alternate icon"
+                   :style="{fontSize:'1.3em', color: selectedDevice===(dev.id||dev.device) ? '#21ba45' : '#555'}"></i>
                 <div>
-                    <div style="font-weight:600">{{ dev.id || dev.device }}</div>
-                    <div style="font-size:0.82em; color:#888; margin-top:2px">
-                        <span :style="{color: dev.state === 'logged_in' ? '#21ba45' : '#aaa'}">
+                    <div style="font-weight:600; display:flex; align-items:center; gap:6px">
+                        {{ dev.id || dev.device }}
+                        <span v-if="selectedDevice === (dev.id || dev.device)"
+                              style="background:#21ba45;color:#fff;border-radius:8px;padding:1px 7px;font-size:.72em;font-weight:700">
+                            ✓ {{ t('agent.device.selected') || 'Selected' }}
+                        </span>
+                    </div>
+                    <div style="font-size:.82em; color:#888; margin-top:2px">
+                        <span :style="{color: dev.state==='logged_in' ? '#21ba45' : '#aaa'}">
                             ● {{ dev.state || 'unknown' }}
                         </span>
                     </div>
                 </div>
             </div>
 
-            <!-- Status badges -->
-            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
-                <!-- LLM badge -->
-                <span v-if="ag(dev.id || dev.device).agent && ag(dev.id || dev.device).agent.enabled"
-                      style="background:#21ba45; color:#fff; border-radius:12px; padding:3px 10px; font-size:0.78em; font-weight:600">
+            <!-- Status + Configure button -->
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap" @click.stop>
+                <span v-if="ag(dev.id||dev.device).agent && ag(dev.id||dev.device).agent.enabled"
+                      style="background:#21ba45;color:#fff;border-radius:12px;padding:3px 10px;font-size:.78em;font-weight:600">
                     <i class="robot icon"></i> {{ t('agent.status.active') }}
                 </span>
-                <span v-else-if="ag(dev.id || dev.device).agent && !ag(dev.id || dev.device).agent.enabled"
-                      style="background:#f2711c; color:#fff; border-radius:12px; padding:3px 10px; font-size:0.78em; font-weight:600">
+                <span v-else-if="ag(dev.id||dev.device).agent && !ag(dev.id||dev.device).agent.enabled"
+                      style="background:#f2711c;color:#fff;border-radius:12px;padding:3px 10px;font-size:.78em;font-weight:600">
                     <i class="robot icon"></i> {{ t('agent.status.paused') }}
                 </span>
-                <span v-else style="background:#e0e0e0; color:#888; border-radius:12px; padding:3px 10px; font-size:0.78em">
+                <span v-else style="background:#e0e0e0;color:#888;border-radius:12px;padding:3px 10px;font-size:.78em">
                     {{ t('agent.status.none') }}
                 </span>
 
-                <button class="ui mini primary button"
-                        :class="{loading: ag(dev.id || dev.device).loading}"
-                        @click="openModal(dev.id || dev.device)">
-                    <i class="cog icon"></i> {{ t('agent.btn.configure') }}
+                <button class="ui mini button"
+                        :class="{
+                            loading: ag(dev.id||dev.device).loading,
+                            green:   configuringDevice === (dev.id||dev.device),
+                            primary: configuringDevice !== (dev.id||dev.device)
+                        }"
+                        @click.stop="configuringDevice === (dev.id||dev.device) ? closeConfig() : openConfig(dev.id||dev.device)">
+                    <i :class="configuringDevice === (dev.id||dev.device) ? 'times icon' : 'cog icon'"></i>
+                    {{ configuringDevice === (dev.id||dev.device) ? t('agent.btn.close')||'Close' : t('agent.btn.configure') }}
                 </button>
             </div>
         </div>
 
-        <!-- Agent summary (when active) -->
-        <div v-if="ag(dev.id || dev.device).agent" style="margin-top:10px; font-size:0.82em; color:#555; background:#f0f4f8; border-radius:6px; padding:8px 12px">
+        <!-- Agent summary -->
+        <div v-if="ag(dev.id||dev.device).agent" style="margin-top:10px;font-size:.82em;color:#555;background:#f0f4f8;border-radius:6px;padding:8px 12px" @click.stop>
             <i class="microchip icon"></i>
-            <strong>{{ ag(dev.id || dev.device).agent.provider }}</strong>
-            · {{ ag(dev.id || dev.device).agent.model }}
-            <span style="margin-left:8px; color:#888">{{ ag(dev.id || dev.device).agent.api_url }}</span>
+            <strong>{{ ag(dev.id||dev.device).agent.provider }}</strong>
+            · {{ ag(dev.id||dev.device).agent.model }}
+            <span style="margin-left:8px;color:#888">{{ ag(dev.id||dev.device).agent.api_url }}</span>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════
+         INLINE CONFIGURATION PANEL
+         ═══════════════════════════════════════════════════ -->
+    <div v-if="configuringDevice" id="agent-config-panel"
+         style="margin-top:20px; background:#fff; border:2px solid #6366f1; border-radius:14px; overflow:hidden; box-shadow:0 4px 20px rgba(99,102,241,.15)">
+
+        <!-- Panel header -->
+        <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6); padding:14px 20px; display:flex; align-items:center; justify-content:space-between">
+            <div style="color:#fff">
+                <div style="font-weight:700; font-size:1rem">
+                    <i class="robot icon"></i> Configure Agent
+                </div>
+                <div style="font-size:.83em; opacity:.85; margin-top:2px">{{ configuringDevice }}</div>
+            </div>
+            <button class="ui mini inverted button" @click="closeConfig" style="background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.3)">
+                <i class="times icon"></i> Close
+            </button>
         </div>
 
-        <!-- Modal de configuração -->
-        <div :id="'agentModal_' + (dev.id || dev.device)" class="ui small modal">
-            <i class="close icon"></i>
-            <div class="header">
-                <i class="robot icon"></i> Agente IA — {{ dev.id || dev.device }}
-            </div>
-            <div class="content" style="padding-bottom:0">
+        <div style="padding:20px">
 
-                <!-- Provider selector -->
-                <div style="margin-bottom:14px">
-                    <div style="font-size:0.82em; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px">
-                        {{ t('agent.provider.label') }}
-                    </div>
-                    <div style="display:flex; flex-wrap:wrap; gap:5px;">
-                        <button class="ui small button"
-                                v-for="p in ['ollama','openai','groq','gemini','claude','custom']"
-                                :key="p"
-                                :class="{primary: ms(dev.id || dev.device).provider === p}"
-                                @click="applyProviderPreset(dev.id || dev.device, p)"
-                                style="text-transform:capitalize">
-                            {{ p }}
-                        </button>
-                    </div>
+            <!-- ① Provider selector -->
+            <div style="margin-bottom:18px">
+                <div style="font-size:.8em; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px">
+                    1 — Select Provider
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:5px">
+                    <button v-for="p in ['ollama','openai','groq','gemini','claude','custom']" :key="p"
+                            class="ui small button"
+                            :style="panelForm.provider===p
+                                ? {background: providerColor(p), color:'#fff', fontWeight:'700', boxShadow: '0 4px 10px rgba(0,0,0,0.15)'}
+                                : {background: '#f3f4f6', color: '#4b5563'}"
+                            @click="applyProviderPreset(p)"
+                            style="text-transform:capitalize; border-radius:12px; border:none">
+                        {{ p }}
+                    </button>
+                </div>
+            </div>
+
+            <!-- ② Template cards for selected provider -->
+            <div style="margin-bottom:20px">
+                <div style="font-size:.8em; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px">
+                    2 — Choose a Template <span style="font-weight:400; text-transform:none">(or configure manually below)</span>
                 </div>
 
-                <!-- Form -->
+                <div v-if="loadingTemplates" class="ui active inline loader" style="margin:10px 0"></div>
+
+                <div v-else-if="panelTemplates.length === 0" style="color:#9ca3af; font-size:.85em; font-style:italic; padding:10px 0">
+                    No templates for <strong>{{ panelForm.provider }}</strong>.
+                    Go to the <strong>Templates</strong> tab to create some.
+                </div>
+
+                <div v-else style="display:flex; flex-wrap:wrap; gap:10px">
+                    <!-- Template cards -->
+                    <div v-for="tpl in panelTemplates" :key="tpl.id"
+                         @click="applyTemplate(tpl)"
+                         :style="{
+                             border: selectedTemplateId===tpl.id ? '2px solid '+providerColor(tpl.provider) : '1px solid #e5e7eb',
+                             borderRadius: '10px',
+                             padding: '12px 14px',
+                             cursor: 'pointer',
+                             minWidth: '200px',
+                             maxWidth: '260px',
+                             background: selectedTemplateId===tpl.id ? '#f0f9ff' : '#fafafa',
+                             transition: 'border-color .15s, background .15s',
+                             position: 'relative',
+                         }">
+                        <div v-if="selectedTemplateId===tpl.id"
+                             style="position:absolute;top:8px;right:8px;background:#21ba45;color:#fff;border-radius:10px;padding:1px 7px;font-size:.7em;font-weight:700">
+                            ✓ Selected
+                        </div>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px">
+                            <span :style="{background: providerColor(tpl.provider), color:'#fff', borderRadius:'8px', padding:'1px 7px', fontSize:'.72em', fontWeight:'700', textTransform:'capitalize'}">
+                                {{ tpl.provider }}
+                            </span>
+                            <span v-if="tpl.structured_output" style="background:#f0f9ff;color:#0369a1;border:1px solid #bae6fd;border-radius:6px;padding:0 5px;font-size:.7em;font-weight:600">JSON</span>
+                        </div>
+                        <div style="font-weight:700; font-size:.9rem; color:#1f2937">{{ tpl.name }}</div>
+                        <div v-if="tpl.description" style="font-size:.78em; color:#6b7280; margin-top:2px">{{ tpl.description }}</div>
+                        <div style="font-size:.75em; color:#6366f1; font-family:monospace; margin-top:4px">{{ tpl.model }}</div>
+                    </div>
+
+                    <!-- Custom card -->
+                    <div @click="clearTemplate()"
+                         :style="{
+                             border: selectedTemplateId===null ? '2px solid #6366f1' : '1px dashed #d1d5db',
+                             borderRadius: '10px',
+                             padding: '12px 14px',
+                             cursor: 'pointer',
+                             minWidth: '160px',
+                             background: selectedTemplateId===null ? '#faf5ff' : '#fafafa',
+                             display: 'flex',
+                             alignItems: 'center',
+                             gap: '8px',
+                             color: selectedTemplateId===null ? '#6366f1' : '#9ca3af',
+                             fontWeight: '600',
+                             fontSize: '.88rem',
+                             transition: 'border-color .15s, background .15s',
+                         }">
+                        <i class="pencil alternate icon"></i>
+                        Custom
+                    </div>
+                </div>
+            </div>
+
+            <!-- ③ Form -->
+            <div style="border-top:1px solid #e5e7eb; padding-top:18px">
+                <div style="font-size:.8em; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.06em; margin-bottom:14px">
+                    3 — Configuration
+                    <span v-if="selectedTemplateId" style="font-weight:400; text-transform:none; color:#6366f1; margin-left:6px">(from template — edit as needed)</span>
+                    <span v-else style="font-weight:400; text-transform:none; color:#9ca3af; margin-left:6px">(custom)</span>
+                </div>
+
                 <div class="ui form">
                     <div class="two fields">
                         <div class="field">
-                            <label>{{ t('agent.apiurl.label') }}</label>
-                            <input type="url"
-                                   :value="ms(dev.id || dev.device).api_url"
-                                   @input="setMsField(dev.id || dev.device, 'api_url', $event.target.value)"
-                                   placeholder="http://localhost:11434/v1" />
+                            <label>API URL</label>
+                            <input type="url" v-model="panelForm.api_url" placeholder="http://localhost:11434/v1" />
                         </div>
                         <div class="field">
-                            <label>{{ t('agent.model.label') }}</label>
-                            <select v-if="ms(dev.id || dev.device).provider !== 'custom'"
-                                    style="width: 100%; border: 1px solid rgba(34,36,38,.15); border-radius: .285rem; padding: 0.62em; outline: none; background: #fff;"
-                                    :value="ms(dev.id || dev.device).model"
-                                    @change="setMsField(dev.id || dev.device, 'model', $event.target.value)">
-                                <option v-for="m in getModelsForProvider(ms(dev.id || dev.device).provider)" :key="m" :value="m">{{ m }}</option>
+                            <label>Model</label>
+                            <select v-if="panelForm.provider !== 'custom'"
+                                    style="width:100%;border:1px solid rgba(34,36,38,.15);border-radius:.285rem;padding:.62em;outline:none;background:#fff"
+                                    v-model="panelForm.model">
+                                <option v-for="m in getModelsForProvider(panelForm.provider)" :key="m" :value="m">{{ m }}</option>
                             </select>
-                            <input v-else type="text"
-                                   :value="ms(dev.id || dev.device).model"
-                                   @input="setMsField(dev.id || dev.device, 'model', $event.target.value)"
-                                   :placeholder="t('agent.model.custom.placeholder')" />
-                                   
-                            <!-- Balloon for description -->
-                            <div style="margin-top: 6px; font-size: 0.85em; color: #555; background: #fdfdfd; border: 1px solid #eee; padding: 6px 10px; border-radius: 4px; border-left: 3px solid #21ba45; line-height: 1.4;">
-                                <i class="info circle icon" style="color: #21ba45;"></i> {{ getModelDescription(ms(dev.id || dev.device).model) }}
+                            <input v-else type="text" v-model="panelForm.model" placeholder="model-name" />
+                            <div style="margin-top:5px;font-size:.82em;color:#555;background:#fdfdfd;border:1px solid #eee;padding:5px 9px;border-radius:4px;border-left:3px solid #21ba45;line-height:1.4">
+                                <i class="info circle icon" style="color:#21ba45"></i> {{ getModelDescription(panelForm.model) }}
                             </div>
                         </div>
                     </div>
-                    <div class="field" v-if="ms(dev.id || dev.device).provider !== 'ollama'">
-                        <label>{{ t('agent.apikey.label') }}</label>
-                        <input type="password"
-                               :value="ms(dev.id || dev.device).api_key"
-                               @input="setMsField(dev.id || dev.device, 'api_key', $event.target.value)"
-                               placeholder="sk-..." />
-                    </div>
-                    <div class="field">
-                        <label>{{ t('agent.systemprompt.label') }} <span style="font-weight:normal; color:#888">{{ t('agent.systemprompt.sub') }}</span></label>
-                        <textarea rows="4"
-                                  :value="ms(dev.id || dev.device).system_prompt"
-                                  @input="setMsField(dev.id || dev.device, 'system_prompt', $event.target.value)"
-                                  :placeholder="t('agent.systemprompt.placeholder')"></textarea>
-                    </div>
-                    <div class="field">
-                        <div class="ui toggle checkbox">
-                            <input type="checkbox"
-                                   :checked="ms(dev.id || dev.device).enabled"
-                                   @change="setMsField(dev.id || dev.device, 'enabled', $event.target.checked)" />
-                            <label>{{ t('agent.enabled.label') }}</label>
+                    <div class="field" v-if="panelForm.provider !== 'ollama'">
+                        <label>API Key</label>
+                        <input type="password" v-model="panelForm.api_key"
+                            :placeholder="panelForm._api_key_set ? '●●●● (leave blank to keep: ' + panelForm._api_key_masked + ')' : 'sk-...'" />
+                        <div v-if="panelForm._api_key_set && !panelForm.api_key" style="font-size:0.78rem;color:#21ba45;margin-top:3px">
+                            <i class="lock icon"></i> Key configured: {{ panelForm._api_key_masked }}
                         </div>
                     </div>
-
-                    <!-- Test result -->
-                    <div v-if="ag(dev.id || dev.device).testResult === 'ok'" class="ui positive message" style="margin-top:8px">
-                        <i class="check circle icon"></i> {{ ag(dev.id || dev.device).testMessage }}
+                    <div class="field">
+                        <label>System Prompt <span style="font-weight:normal;color:#888">(optional)</span></label>
+                        <textarea rows="4" v-model="panelForm.system_prompt" placeholder="You are a helpful assistant..."></textarea>
                     </div>
-                    <div v-if="ag(dev.id || dev.device).testResult === 'error'" class="ui negative message" style="margin-top:8px">
-                        <i class="times circle icon"></i> {{ ag(dev.id || dev.device).testMessage }}
+                    <div class="three fields">
+                        <div class="field">
+                            <label>History <span style="font-weight:normal;color:#888">(0=stateless)</span></label>
+                            <input type="number" min="0" max="50" v-model="panelForm.context_messages" />
+                        </div>
+                        <div class="field">
+                            <label>Temperature</label>
+                            <input type="number" min="0" max="2" step="0.1" v-model="panelForm.temperature" />
+                        </div>
+                        <div class="field">
+                            <label>Max Tokens <span style="font-weight:normal;color:#888">(0=no limit)</span></label>
+                            <input type="number" min="0" v-model="panelForm.max_tokens" />
+                        </div>
+                    </div>
+                    <div class="three fields">
+                        <div class="field">
+                            <div class="ui toggle checkbox">
+                                <input type="checkbox" v-model="panelForm.enabled" />
+                                <label>Enabled</label>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <div class="ui toggle checkbox">
+                                <input type="checkbox" v-model="panelForm.allow_groups" />
+                                <label>Reply in groups</label>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <div class="ui toggle checkbox">
+                                <input type="checkbox" v-model="panelForm.structured_output" />
+                                <label>Structured output (JSON)</label>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="actions">
-                <button class="ui red basic button" v-if="ag(dev.id || dev.device).agent"
-                        @click="removeAgent(dev.id || dev.device)"
-                        :class="{loading: ag(dev.id || dev.device).saving}" style="float:left">
-                    <i class="trash icon"></i> {{ t('agent.btn.remove') }}
+
+            <!-- Test result -->
+            <div v-if="ag(configuringDevice).testResult === 'ok'" class="ui positive message" style="margin-top:10px">
+                <i class="check circle icon"></i> {{ ag(configuringDevice).testMessage }}
+            </div>
+            <div v-if="ag(configuringDevice).testResult === 'error'" class="ui negative message" style="margin-top:10px">
+                <i class="times circle icon"></i> {{ ag(configuringDevice).testMessage }}
+            </div>
+
+            <!-- Action buttons -->
+            <div style="display:flex; gap:8px; margin-top:20px; padding-top:15px; border-top:1px solid #eee">
+                <button class="ui teal button" :class="{loading: ag(configuringDevice).testing}" @click="testAgent">
+                    <i class="plug icon"></i> {{ t('agent.btn.test') || 'Test Connection' }}
                 </button>
-                <button class="ui button" @click="closeModal(dev.id || dev.device)">{{ t('agent.btn.cancel') }}</button>
-                <button class="ui teal basic button"
-                        @click="testAgent(dev.id || dev.device)"
-                        :class="{loading: ag(dev.id || dev.device).testing}"
-                        :disabled="!ms(dev.id || dev.device).api_url || !ms(dev.id || dev.device).model">
-                    <i class="flask icon"></i> {{ t('agent.btn.test') }}
+                <div style="flex:1"></div>
+                <button class="ui primary button" :class="{loading: ag(configuringDevice).saving}" @click="saveAgent">
+                    <i class="save icon"></i> {{ t('agent.btn.save') || 'Save Agent' }}
                 </button>
-                <button class="ui primary button"
-                        @click="saveAgent(dev.id || dev.device)"
-                        :class="{loading: ag(dev.id || dev.device).saving}"
-                        :disabled="!ms(dev.id || dev.device).api_url || !ms(dev.id || dev.device).model">
-                    <i class="save icon"></i> {{ t('agent.btn.save') }}
+                <button v-if="ag(configuringDevice).agent" class="ui red button" @click="removeAgent">
+                    <i class="trash icon"></i> Remove
+                </button>
+                <button class="ui button" @click="closeConfig">
+                    {{ t('agent.btn.cancel') || 'Cancel' }}
                 </button>
             </div>
         </div>
-
     </div>
 </div>
-    `
-}
+`
+};

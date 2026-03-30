@@ -1018,6 +1018,90 @@ func (r *SQLiteRepository) InitializeSchema() error {
 		}
 	}
 
+	// Seed example templates only on first run (table just created or empty)
+	if err := r.seedDefaultTemplates(); err != nil {
+		logrus.Warnf("Failed to seed default templates: %v", err)
+	}
+
+	return nil
+}
+
+// seedDefaultTemplates inserts example customer-service templates if the table is empty.
+func (r *SQLiteRepository) seedDefaultTemplates() error {
+	var count int
+	if err := r.db.QueryRow(`SELECT COUNT(*) FROM agent_templates`).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil // already seeded
+	}
+
+	now := time.Now()
+	seeds := []struct {
+		name, desc, provider, apiURL, model, prompt string
+		temp                                         float64
+		ctx                                          int
+		groups, structured                           bool
+	}{
+		{
+			name:     "Atendimento Geral",
+			desc:     "Assistente de atendimento ao cliente profissional em português",
+			provider: "ollama", apiURL: "http://localhost:11434/v1", model: "llama3.2",
+			prompt: "Você é um assistente de atendimento ao cliente profissional e empático. Responda sempre em português, de forma clara e educada. Seu objetivo é resolver dúvidas, registrar reclamações e direcionar o cliente ao setor correto quando necessário. Nunca deixe o cliente sem resposta.",
+			temp: 0.7, ctx: 10,
+		},
+		{
+			name:     "Suporte Técnico",
+			desc:     "Especialista em suporte técnico passo a passo",
+			provider: "ollama", apiURL: "http://localhost:11434/v1", model: "llama3.2",
+			prompt: "Você é um especialista em suporte técnico. Ajude o cliente a resolver problemas técnicos passo a passo, de forma clara e paciente. Faça perguntas para entender o problema antes de sugerir soluções. Se o problema for muito complexo, informe que irá escalar para um especialista humano.",
+			temp: 0.5, ctx: 15,
+		},
+		{
+			name:     "Assistente de Vendas",
+			desc:     "Consultor de vendas consultivo e persuasivo — rápido (Groq)",
+			provider: "groq", apiURL: "https://api.groq.com/openai/v1", model: "llama-3.1-8b-instant",
+			prompt: "Você é um consultor de vendas consultivo e entusiasta. Entenda as necessidades do cliente, apresente os benefícios dos produtos/serviços de forma persuasiva e auxilie no processo de compra. Destaque ofertas especiais e conduza o cliente à decisão de compra de forma natural e respeitosa.",
+			temp: 0.8, ctx: 10,
+		},
+		{
+			name:     "FAQ Instantâneo",
+			desc:     "Respostas rápidas e concisas para perguntas frequentes",
+			provider: "groq", apiURL: "https://api.groq.com/openai/v1", model: "llama-3.1-8b-instant",
+			prompt: "Você é um bot de FAQ ultra-rápido. Responda perguntas frequentes de forma direta e concisa, com no máximo 3 frases. Se a pergunta for muito específica ou fora do contexto, informe que irá conectar com um atendente humano.",
+			temp: 0.3, ctx: 0,
+		},
+		{
+			name:     "Triagem Inteligente",
+			desc:     "Classifica e encaminha o atendimento por departamento (JSON)",
+			provider: "openai", apiURL: "https://api.openai.com/v1", model: "gpt-4o-mini",
+			prompt: "Você é um sistema de triagem inteligente. Analise a mensagem do cliente e classifique: qual é o problema, qual departamento deve atender (Vendas/Suporte/Financeiro/Outros) e qual a urgência (baixa/média/alta). Seja preciso e sistemático.",
+			temp: 0.2, ctx: 5, structured: true,
+		},
+		{
+			name:     "Consultor Premium",
+			desc:     "Consultor sênior com memória de conversa longa — Claude",
+			provider: "claude", apiURL: "https://api.anthropic.com/v1", model: "claude-haiku-4-5-20251001",
+			prompt: "Você é um consultor de negócios sênior com profundo conhecimento em gestão, marketing e operações. Forneça insights estratégicos, analise situações de negócio e ofereça recomendações práticas. Lembre-se do contexto da conversa para dar continuidade ao raciocínio.",
+			temp: 0.7, ctx: 20,
+		},
+	}
+
+	for _, s := range seeds {
+		_, err := r.db.Exec(`
+			INSERT INTO agent_templates
+			  (name, description, provider, api_url, api_key, model, system_prompt,
+			   temperature, max_tokens, context_messages, allow_groups, structured_output,
+			   created_at, updated_at)
+			VALUES (?, ?, ?, ?, '', ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
+			s.name, s.desc, s.provider, s.apiURL, s.model, s.prompt,
+			s.temp, s.ctx, s.groups, s.structured, now, now,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	logrus.Infof("Seeded %d default agent templates", len(seeds))
 	return nil
 }
 
@@ -1144,5 +1228,61 @@ func (r *SQLiteRepository) getMigrations() []string {
 
 		// Migration 14: Add index for archived column
 		`CREATE INDEX IF NOT EXISTS idx_chats_archived ON chats(archived)`,
+
+		// Migration 15: Create device_webhooks table for per-device n8n/webhook configuration
+		`CREATE TABLE IF NOT EXISTS device_webhooks (
+			device_id VARCHAR(255) PRIMARY KEY,
+			url TEXT NOT NULL,
+			enabled BOOLEAN DEFAULT TRUE,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Migration 16: Create device_agents table for per-device LLM agent configuration
+		`CREATE TABLE IF NOT EXISTS device_agents (
+			device_id VARCHAR(255) PRIMARY KEY,
+			provider VARCHAR(50) NOT NULL DEFAULT 'ollama',
+			api_url TEXT NOT NULL DEFAULT 'http://localhost:11434/v1',
+			api_key TEXT DEFAULT '',
+			model VARCHAR(255) NOT NULL DEFAULT 'llama3.2',
+			system_prompt TEXT DEFAULT '',
+			enabled BOOLEAN DEFAULT TRUE,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Migration 17: Add temperature field to device_agents
+		`ALTER TABLE device_agents ADD COLUMN temperature REAL DEFAULT 0.7`,
+
+		// Migration 18: Add max_tokens field to device_agents
+		`ALTER TABLE device_agents ADD COLUMN max_tokens INTEGER DEFAULT 0`,
+
+		// Migration 19: Add context_messages field to device_agents
+		`ALTER TABLE device_agents ADD COLUMN context_messages INTEGER DEFAULT 10`,
+
+		// Migration 20: Add allow_groups field to device_agents
+		`ALTER TABLE device_agents ADD COLUMN allow_groups BOOLEAN DEFAULT FALSE`,
+
+		// Migration 21: Add structured_output field to device_agents
+		`ALTER TABLE device_agents ADD COLUMN structured_output BOOLEAN DEFAULT FALSE`,
+
+		// Migration 22: Create agent_templates table
+		`CREATE TABLE IF NOT EXISTS agent_templates (
+			id               INTEGER PRIMARY KEY AUTOINCREMENT,
+			name             VARCHAR(255) NOT NULL,
+			description      TEXT DEFAULT '',
+			provider         VARCHAR(50)  NOT NULL DEFAULT 'ollama',
+			api_url          TEXT NOT NULL,
+			api_key          TEXT DEFAULT '',
+			model            VARCHAR(255) NOT NULL,
+			system_prompt    TEXT DEFAULT '',
+			temperature      REAL DEFAULT 0.7,
+			max_tokens       INTEGER DEFAULT 0,
+			context_messages INTEGER DEFAULT 10,
+			allow_groups     BOOLEAN DEFAULT FALSE,
+			structured_output BOOLEAN DEFAULT FALSE,
+			created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
 	}
 }

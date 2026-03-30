@@ -125,6 +125,15 @@ func restServer(_ *cobra.Command, _ []string) {
 	// Device management routes (no device_id required)
 	rest.InitRestDevice(apiGroup, deviceUsecase)
 
+	// Per-device webhook configuration (n8n integration)
+	rest.InitRestDeviceWebhook(apiGroup, chatStorageRepo)
+
+	// Per-device LLM agent configuration
+	rest.InitRestDeviceAgent(apiGroup, chatStorageRepo)
+
+	// Agent templates (reusable LLM configurations)
+	rest.InitRestAgentTemplate(apiGroup, chatStorageRepo)
+
 	// Device-scoped operations (header-based)
 	headerDeviceGroup := apiGroup.Group("", middleware.DeviceMiddleware(dm))
 	registerDeviceScopedRoutes(headerDeviceGroup)

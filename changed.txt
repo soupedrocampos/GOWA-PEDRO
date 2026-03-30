@@ -1,0 +1,11 @@
+.claude/settings.local.json
+src/cmd/rest.go
+src/domains/chatstorage/chatstorage.go
+src/domains/chatstorage/interfaces.go
+src/infrastructure/chatstorage/device_repository.go
+src/infrastructure/chatstorage/sqlite_repository.go
+src/infrastructure/whatsapp/chatstorage_wrapper.go
+src/infrastructure/whatsapp/event_message_handler.go
+src/views/assets/app.css
+src/views/assets/gowa.svg
+src/views/components/AgentManager.js
