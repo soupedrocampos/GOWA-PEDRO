@@ -45,6 +45,20 @@ export default {
         availableProviders() {
             return ['ollama','openai','groq','grok','gemini','claude','custom'];
         },
+        // Model → API endpoint correction map.
+        // When a model is selected, we validate the api_url is the right base URL.
+        correctEndpointForModel() {
+            const provider = this.panelForm.provider;
+            const bases = {
+                ollama: 'http://localhost:11434/v1',
+                openai: 'https://api.openai.com/v1',
+                groq:   'https://api.groq.com/openai/v1',
+                grok:   'https://api.x.ai/v1',
+                gemini: 'https://generativelanguage.googleapis.com/v1beta/openai',
+                claude: 'https://api.anthropic.com/v1',
+            };
+            return bases[provider] || this.panelForm.api_url;
+        },
 
     },
     watch: {
@@ -58,7 +72,15 @@ export default {
                     });
                 }
             }
-        }
+        },
+        // When model changes, auto-fix the api_url if it drifted from the correct base
+        'panelForm.model'(newModel) {
+            if (!newModel || this.panelForm.provider === 'custom') return;
+            const correct = this.correctEndpointForModel;
+            if (correct && this.panelForm.api_url !== correct) {
+                this.panelForm.api_url = correct;
+            }
+        },
     },
     methods: {
         blankForm() {
@@ -263,15 +285,74 @@ export default {
             }
         },
         getModelsForProvider(provider) {
+            // Returns model list grouped with section headers for the UI
             const models = {
-                ollama:  ['llama3.2','llama3.1','llama3','llama4-scout','mistral','gemma2','qwen2.5','phi3','deepseek-r1','llava','llama-guard-4-12b'],
-                openai:  ['gpt-4.1','gpt-4.1-mini','gpt-4o','gpt-4o-mini','gpt-4-turbo','o1-preview','o1-mini','o3-mini','o3'],
-                groq:    ['llama-3.3-70b-versatile','llama-3.1-8b-instant','llama4-scout-17b-16e-instruct','llama4-maverick-17b-128e-instruct','llama-guard-4-12b','mixtral-8x7b-32768','gemma2-9b-it','deepseek-r1-distill-llama-70b','compound-beta','compound-beta-mini'],
-                grok:    ['grok-3','grok-3-mini','grok-3-fast','grok-3-mini-fast','grok-2-1212','grok-2-vision-1212'],
-                gemini:  ['gemini-2.5-pro','gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.0-flash','gemini-2.0-pro','gemini-1.5-flash','gemini-1.5-pro'],
-                claude:  ['claude-opus-4-6','claude-sonnet-4-6','claude-haiku-4-5-20251001','claude-3-5-sonnet-20241022','claude-3-5-haiku-20241022','claude-3-opus-20240229'],
+                ollama:  [
+                    { id: 'llama3.2',           label: 'Llama 3.2 (3B)' },
+                    { id: 'llama3.1',           label: 'Llama 3.1 (8B)' },
+                    { id: 'llama3',             label: 'Llama 3 (8B)' },
+                    { id: 'llama4-scout',       label: 'Llama 4 Scout (Multimodal)' },
+                    { id: 'mistral',            label: 'Mistral 7B' },
+                    { id: 'gemma2',             label: 'Gemma 2 (9B)' },
+                    { id: 'qwen2.5',            label: 'Qwen 2.5' },
+                    { id: 'deepseek-r1',        label: 'DeepSeek R1 (Raciocínio)' },
+                    { id: 'llava',              label: 'LLaVA (Visão)' },
+                    { id: 'llama-guard-4-12b',  label: 'Llama Guard 4 (Moderação)' },
+                    { id: 'phi3',               label: 'Phi-3 Mini' },
+                ],
+                openai:  [
+                    { id: 'gpt-4.1',            label: 'GPT-4.1 ★ Recomendado' },
+                    { id: 'gpt-4.1-mini',       label: 'GPT-4.1 Mini 💰 Barato' },
+                    { id: 'gpt-4o',             label: 'GPT-4o' },
+                    { id: 'gpt-4o-mini',        label: 'GPT-4o Mini' },
+                    { id: 'gpt-4-turbo',        label: 'GPT-4 Turbo' },
+                    { id: 'o3-mini',            label: 'o3-mini (Math/Code)' },
+                    { id: 'o3',                 label: 'o3 (Raciocínio Máximo)' },
+                    { id: 'o1-preview',         label: 'o1-preview' },
+                    { id: 'o1-mini',            label: 'o1-mini' },
+                ],
+                groq:    [
+                    { id: 'llama-3.3-70b-versatile',              label: 'Llama 3.3 70B ★ Recomendado' },
+                    { id: 'llama4-scout-17b-16e-instruct',         label: 'Llama 4 Scout (Multimodal)' },
+                    { id: 'llama4-maverick-17b-128e-instruct',     label: 'Llama 4 Maverick' },
+                    { id: 'llama-3.1-8b-instant',                  label: 'Llama 3.1 8B ⚡ Ultra-rápido' },
+                    { id: 'deepseek-r1-distill-llama-70b',         label: 'DeepSeek R1 70B (Raciocínio)' },
+                    { id: 'mixtral-8x7b-32768',                    label: 'Mixtral 8x7B' },
+                    { id: 'gemma2-9b-it',                          label: 'Gemma 2 9B' },
+                    { id: 'llama-guard-4-12b',                     label: 'Llama Guard 4 (Moderação)' },
+                    { id: 'compound-beta',                         label: 'Compound Beta (Agente+Web)' },
+                    { id: 'compound-beta-mini',                    label: 'Compound Beta Mini' },
+                ],
+                grok:    [
+                    { id: 'grok-3',             label: 'Grok 3 ★ Mais poderoso' },
+                    { id: 'grok-3-mini',        label: 'Grok 3 Mini ★ Recomendado' },
+                    { id: 'grok-3-fast',        label: 'Grok 3 Fast ⚡ Rápido' },
+                    { id: 'grok-3-mini-fast',   label: 'Grok 3 Mini Fast 💰 Barato' },
+                    { id: 'grok-2-1212',        label: 'Grok 2 (2M tokens ctx)' },
+                    { id: 'grok-2-vision-1212', label: 'Grok 2 Vision (Imagem)' },
+                ],
+                gemini:  [
+                    { id: 'gemini-2.5-pro',         label: 'Gemini 2.5 Pro ★ Mais poderoso (1M ctx)' },
+                    { id: 'gemini-2.5-flash',        label: 'Gemini 2.5 Flash ★ Recomendado' },
+                    { id: 'gemini-2.5-flash-lite',   label: 'Gemini 2.5 Flash Lite 💰 Mais barato' },
+                    { id: 'gemini-2.0-flash',        label: 'Gemini 2.0 Flash' },
+                    { id: 'gemini-2.0-pro',          label: 'Gemini 2.0 Pro' },
+                    { id: 'gemini-1.5-flash',        label: 'Gemini 1.5 Flash' },
+                    { id: 'gemini-1.5-pro',          label: 'Gemini 1.5 Pro' },
+                ],
+                claude:  [
+                    { id: 'claude-opus-4-6',            label: 'Claude Opus 4 ★ Mais poderoso' },
+                    { id: 'claude-sonnet-4-6',           label: 'Claude Sonnet 4 ★ Recomendado' },
+                    { id: 'claude-haiku-4-5-20251001',   label: 'Claude Haiku 4 ⚡ Rápido' },
+                    { id: 'claude-3-5-sonnet-20241022',  label: 'Claude 3.5 Sonnet (Excelente código)' },
+                    { id: 'claude-3-5-haiku-20241022',   label: 'Claude 3.5 Haiku 💰 Barato' },
+                    { id: 'claude-3-opus-20240229',      label: 'Claude 3 Opus' },
+                ],
             };
             return models[provider] || [];
+        },
+        getModelIds(provider) {
+            return this.getModelsForProvider(provider).map(m => m.id);
         },
         getModelDescription(modelName) {
             if (!modelName) return 'Selecione um modelo para ver detalhes.';
@@ -537,11 +618,20 @@ export default {
                             <input type="url" v-model="panelForm.api_url" placeholder="http://localhost:11434/v1" />
                         </div>
                         <div class="field">
-                            <label>Model</label>
+                            <label>Modelo
+                                <span v-if="panelForm.provider !== 'custom' && panelForm.provider !== 'ollama'"
+                                      style="font-weight:normal; color:#6366f1; font-size:0.82em; margin-left:4px">
+                                    → endpoint: <code style="background:#f0f0ff; padding:1px 5px; border-radius:3px; font-size:0.9em">{{ correctEndpointForModel }}/chat/completions</code>
+                                </span>
+                                <span v-if="panelForm.provider === 'claude'"
+                                      style="font-weight:normal; color:#6366f1; font-size:0.82em; margin-left:4px">
+                                    → endpoint: <code style="background:#f0f0ff; padding:1px 5px; border-radius:3px; font-size:0.9em">{{ correctEndpointForModel }}/messages</code>
+                                </span>
+                            </label>
                             <select v-if="panelForm.provider !== 'custom'"
                                     style="width:100%;border:1px solid rgba(34,36,38,.15);border-radius:.285rem;padding:.62em;outline:none;background:#fff"
                                     v-model="panelForm.model">
-                                <option v-for="m in getModelsForProvider(panelForm.provider)" :key="m" :value="m">{{ m }}</option>
+                                <option v-for="m in getModelsForProvider(panelForm.provider)" :key="m.id" :value="m.id">{{ m.label }}</option>
                             </select>
                             <input v-else type="text" v-model="panelForm.model" placeholder="model-name" />
                             <div style="margin-top:5px;font-size:.82em;color:#555;background:#fdfdfd;border:1px solid #eee;padding:5px 9px;border-radius:4px;border-left:3px solid #21ba45;line-height:1.4">

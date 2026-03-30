@@ -55,6 +55,60 @@ export default {
         providerLabel(p) {
             return this.providerLabels[p] || p;
         },
+        getModelsForProvider(provider) {
+            const models = {
+                ollama:  [
+                    { id: 'llama3.2',           label: 'Llama 3.2 (3B)' },
+                    { id: 'llama3.1',           label: 'Llama 3.1 (8B)' },
+                    { id: 'llama4-scout',       label: 'Llama 4 Scout (Multimodal)' },
+                    { id: 'mistral',            label: 'Mistral 7B' },
+                    { id: 'gemma2',             label: 'Gemma 2 (9B)' },
+                    { id: 'qwen2.5',            label: 'Qwen 2.5' },
+                    { id: 'deepseek-r1',        label: 'DeepSeek R1 (Raciocínio)' },
+                    { id: 'llava',              label: 'LLaVA (Visão)' },
+                    { id: 'phi3',               label: 'Phi-3 Mini' },
+                ],
+                openai:  [
+                    { id: 'gpt-4.1',        label: 'GPT-4.1 ★ Recomendado' },
+                    { id: 'gpt-4.1-mini',   label: 'GPT-4.1 Mini 💰' },
+                    { id: 'gpt-4o',         label: 'GPT-4o' },
+                    { id: 'gpt-4o-mini',    label: 'GPT-4o Mini' },
+                    { id: 'o3-mini',        label: 'o3-mini (Math/Code)' },
+                    { id: 'o3',             label: 'o3 (Máximo)' },
+                ],
+                groq:    [
+                    { id: 'llama-3.3-70b-versatile',          label: 'Llama 3.3 70B ★' },
+                    { id: 'llama4-scout-17b-16e-instruct',     label: 'Llama 4 Scout' },
+                    { id: 'llama-3.1-8b-instant',              label: 'Llama 3.1 8B ⚡' },
+                    { id: 'deepseek-r1-distill-llama-70b',     label: 'DeepSeek R1 70B' },
+                    { id: 'mixtral-8x7b-32768',                label: 'Mixtral 8x7B' },
+                    { id: 'compound-beta',                     label: 'Compound Beta (Agente)' },
+                ],
+                grok:    [
+                    { id: 'grok-3',             label: 'Grok 3 ★' },
+                    { id: 'grok-3-mini',        label: 'Grok 3 Mini ★' },
+                    { id: 'grok-3-fast',        label: 'Grok 3 Fast ⚡' },
+                    { id: 'grok-3-mini-fast',   label: 'Grok 3 Mini Fast 💰' },
+                    { id: 'grok-2-1212',        label: 'Grok 2 (2M ctx)' },
+                ],
+                gemini:  [
+                    { id: 'gemini-2.5-pro',         label: 'Gemini 2.5 Pro ★ (1M ctx)' },
+                    { id: 'gemini-2.5-flash',        label: 'Gemini 2.5 Flash ★' },
+                    { id: 'gemini-2.5-flash-lite',   label: 'Gemini 2.5 Flash Lite 💰' },
+                    { id: 'gemini-2.0-flash',        label: 'Gemini 2.0 Flash' },
+                    { id: 'gemini-1.5-flash',        label: 'Gemini 1.5 Flash' },
+                    { id: 'gemini-1.5-pro',          label: 'Gemini 1.5 Pro' },
+                ],
+                claude:  [
+                    { id: 'claude-opus-4-6',            label: 'Claude Opus 4 ★' },
+                    { id: 'claude-sonnet-4-6',           label: 'Claude Sonnet 4 ★' },
+                    { id: 'claude-haiku-4-5-20251001',   label: 'Claude Haiku 4 ⚡' },
+                    { id: 'claude-3-5-sonnet-20241022',  label: 'Claude 3.5 Sonnet' },
+                    { id: 'claude-3-5-haiku-20241022',   label: 'Claude 3.5 Haiku 💰' },
+                ],
+            };
+            return models[provider] || [];
+        },
         async load() {
             this.loading = true;
             try {
@@ -225,7 +279,12 @@ export default {
                     </div>
                     <div class="field">
                         <label style="font-size:0.85em">Modelo *</label>
-                        <input type="text" v-model="form.model" style="padding:6px 8px" />
+                        <select v-if="form.provider !== 'custom'"
+                                style="width:100%;border:1px solid rgba(34,36,38,.15);border-radius:.285rem;padding:6px 8px;outline:none;background:#fff;font-size:0.9em"
+                                v-model="form.model">
+                            <option v-for="m in getModelsForProvider(form.provider)" :key="m.id" :value="m.id">{{ m.label }}</option>
+                        </select>
+                        <input v-else type="text" v-model="form.model" style="padding:6px 8px" placeholder="model-name" />
                     </div>
                 </div>
                 <div class="field" v-if="form.provider !== 'ollama'" style="margin-bottom:8px">
@@ -398,8 +457,13 @@ export default {
                         <input type="url" v-model="form.api_url" placeholder="http://localhost:11434/v1" />
                     </div>
                     <div class="field">
-                        <label>Model *</label>
-                        <input type="text" v-model="form.model" placeholder="llama3.2" />
+                        <label>Modelo *</label>
+                        <select v-if="form.provider !== 'custom'"
+                                style="width:100%;border:1px solid rgba(34,36,38,.15);border-radius:.285rem;padding:.62em;outline:none;background:#fff"
+                                v-model="form.model">
+                            <option v-for="m in getModelsForProvider(form.provider)" :key="m.id" :value="m.id">{{ m.label }}</option>
+                        </select>
+                        <input v-else type="text" v-model="form.model" placeholder="model-name" />
                     </div>
                 </div>
                 <div class="field" v-if="form.provider !== 'ollama'">
