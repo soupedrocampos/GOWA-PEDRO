@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt">
+<html lang="en">
 <head>
     <!-- Required meta tags -->
     <meta charset="utf-8">
@@ -9,6 +9,18 @@
           href="https://cdnjs.cloudflare.com/ajax/libs/fomantic-ui/2.8.8/semantic.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.4/css/dataTables.semanticui.min.css">
     <link rel="stylesheet" href="{{ .AppBasePath }}/assets/app.css">
+    <!-- Google Translate: hide all toolbar elements aggressively -->
+    <style>
+        .goog-te-banner-frame,
+        .goog-te-menu-frame,
+        .goog-te-balloon-frame,
+        #goog-gt-tt,
+        #google_translate_element,
+        .skiptranslate { display: none !important; visibility: hidden !important; }
+        body { top: 0 !important; margin-top: 0 !important; }
+        .goog-text-highlight { background: none !important; box-shadow: none !important; }
+        font { vertical-align: inherit !important; }
+    </style>
     <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.4/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.4/js/dataTables.semanticui.min.js"></script>
@@ -77,6 +89,9 @@
         </a>
         <a class="item" :class="{active: currentTab==='agents'}" @click="currentTab='agents'" style="font-weight:600">
             <i class="robot icon"></i> [[ $t('tab.agents') ]]
+        </a>
+        <a class="item" :class="{active: currentTab==='templates'}" @click="currentTab='templates'" style="font-weight:600">
+            <i class="layer group icon"></i> [[ $t('tab.templates') ]]
         </a>
     </div>
 
@@ -210,19 +225,19 @@
     <div v-show="currentTab==='agents'" style="padding-bottom:2rem">
 
         <!-- Page header -->
-        <div style="display:flex; align-items:center; gap:14px; margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid #e8e8e8">
+        <div style="display:flex; align-items:center; gap:14px; margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid #e8e8e8">
             <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6); border-radius:12px; padding:12px; display:flex; align-items:center; justify-content:center">
                 <i class="robot icon" style="font-size:1.6em; color:#fff; margin:0"></i>
             </div>
             <div>
-                <h2 style="margin:0; font-size:1.5rem; font-weight:700; color:#1f2937">Agentes de IA</h2>
+                <h2 style="margin:0; font-size:1.5rem; font-weight:700; color:#1f2937">AI Agents</h2>
                 <p style="margin:4px 0 0; color:#6b7280; font-size:0.9rem">
-                    Configure respostas automáticas por dispositivo: via <strong>n8n (webhook)</strong> ou <strong>LLM direto</strong> (Ollama, OpenAI, Groq…)
+                    Configure automatic responses per device: via <strong>n8n (webhook)</strong> or <strong>direct LLM</strong> (Ollama, OpenAI, Groq…)
                 </p>
             </div>
         </div>
 
-        <!-- Two-column layout: agent list (left) + reference panel (right) -->
+        <!-- ── Agents layout -->
         <div class="ui stackable grid">
             <div class="twelve wide column">
                 <agent-manager :device-list="deviceList"></agent-manager>
@@ -236,10 +251,10 @@
                         <div class="content">Como funciona</div>
                     </h4>
                     <div style="font-size:0.85rem; color:#374151; line-height:1.6">
-                        <p><strong>1 — n8n (Webhook)</strong><br>
-                        Configure o webhook na aba <em>Device setup</em>. O ROBIT encaminha cada mensagem recebida ao n8n, que processa com IA e chama <code>/send/message</code> de volta.</p>
+                        <p><strong>1 — Webhook (n8n/Make)</strong><br>
+                        Configure o webhook no painel de <em>dispositivos</em>. O ROBIT redireciona as mensagens, que são processadas pela sua automação e devolvidas via API.</p>
                         <p style="margin-top:10px"><strong>2 — LLM Direto</strong><br>
-                        O ROBIT chama a API do LLM a cada mensagem recebida e responde automaticamente — sem precisar do n8n.</p>
+                        O ROBIT chama a API do LLM escolhido para cada mensagem recebida e responde de forma nativa e automática.</p>
                     </div>
                 </div>
 
@@ -247,13 +262,15 @@
                 <div class="ui segment" style="margin-top:12px; border-radius:10px; border:none; box-shadow:0 1px 4px rgba(0,0,0,.08)">
                     <h4 class="ui header" style="margin-bottom:12px">
                         <i class="microchip icon" style="color:#6366f1"></i>
-                        <div class="content">Providers suportados</div>
+                        <div class="content">Suporte Nativo</div>
                     </h4>
                     <div style="font-size:0.85rem; color:#374151; line-height:1.8">
-                        <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#21ba45;margin-right:6px"></span><strong>Ollama</strong> — modelos locais (llama3, mistral, qwen…)</div>
-                        <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2185d0;margin-right:6px"></span><strong>OpenAI</strong> — GPT-4o, GPT-4o-mini…</div>
-                        <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f2711c;margin-right:6px"></span><strong>Groq</strong> — llama-3.1 ultrarrápido</div>
-                        <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#a333c8;margin-right:6px"></span><strong>Custom</strong> — qualquer API OpenAI-compatível</div>
+                        <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#21ba45;margin-right:6px"></span><strong>Ollama</strong> — local models</div>
+                        <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2185d0;margin-right:6px"></span><strong>OpenAI</strong> — GPT-4o, mini</div>
+                        <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f2711c;margin-right:6px"></span><strong>Groq</strong> — llama-3 ultra-rápido</div>
+                        <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4285f4;margin-right:6px"></span><strong>Gemini</strong> — 2.0-flash...</div>
+                        <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#c0392b;margin-right:6px"></span><strong>Claude</strong> — Anthropic</div>
+                        <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#a333c8;margin-right:6px"></span><strong>Custom</strong> — compativel OpenAI</div>
                     </div>
                 </div>
 
@@ -261,16 +278,19 @@
                 <div class="ui info message" style="margin-top:12px; border-radius:10px; font-size:0.83rem">
                     <div class="header" style="font-size:0.9rem">Dicas</div>
                     <ul class="list" style="margin-top:6px">
-                        <li>O LLM só responde a chats <strong>individuais</strong> — grupos são ignorados.</li>
-                        <li>Use o <strong>System Prompt</strong> para definir a personalidade do agente.</li>
-                        <li>Clique em <em>Testar LLM</em> antes de salvar para verificar a conexão.</li>
-                        <li>n8n e LLM podem coexistir no mesmo dispositivo.</li>
+                        <li>LLM apenas responde conversas individuais — grupos são ignorados a menos que ativado.</li>
+                        <li>Webhook e LLM podem coexistir.</li>
                     </ul>
                 </div>
             </div>
         </div>
 
     </div><!-- end agents tab -->
+
+    <!-- ==================== TEMPLATES TAB ==================== -->
+    <div v-show="currentTab==='templates'" style="padding-bottom:2rem">
+        <agent-templates :compact="false"></agent-templates>
+    </div>
 
 </div>
 <script>
@@ -280,8 +300,9 @@
     window.i18n = (() => {
         const messages = {
             pt: {
-                'tab.dashboard': 'Dashboard',
+                'tab.dashboard': 'Painel',
                 'tab.agents': 'Agentes IA',
+                'tab.templates': 'Modelos',
                 'device.setup.subtitle': 'Crie ou selecione um device_id, depois abra o login.',
                 'device.setup.field.deviceid': 'Device ID (opcional)',
                 'device.setup.placeholder': 'Deixe em branco para gerar automaticamente',
@@ -315,10 +336,20 @@
                 'agent.model.custom.placeholder': 'Digite o seu modelo customizado...',
                 'agent.nodevices': 'Nenhum dispositivo encontrado',
                 'agent.nodevices.hint': 'Acesse a aba Dashboard e crie um dispositivo na seção Device setup antes de configurar agentes.',
+                'agent.device.selected': 'Selecionado',
+                'agent.modal.title': 'Agente IA',
+                'agent.context.label': 'Histórico',
+                'agent.context.sub': '(0 = sem memória)',
+                'agent.temperature.label': 'Temperatura',
+                'agent.maxtokens.label': 'Max Tokens',
+                'agent.maxtokens.sub': '(0 = sem limite)',
+                'agent.allowgroups.label': 'Responder em grupos',
+                'agent.structuredoutput.label': 'Saída estruturada (JSON)',
             },
             en: {
                 'tab.dashboard': 'Dashboard',
                 'tab.agents': 'AI Agents',
+                'tab.templates': 'Models',
                 'device.setup.subtitle': 'Create or select a device_id, then open login.',
                 'device.setup.field.deviceid': 'Device ID (optional)',
                 'device.setup.placeholder': 'Leave empty to auto-generate',
@@ -352,10 +383,20 @@
                 'agent.model.custom.placeholder': 'Enter your custom model name...',
                 'agent.nodevices': 'No devices found',
                 'agent.nodevices.hint': 'Go to the Dashboard tab and create a device in the Device setup section before configuring agents.',
+                'agent.device.selected': 'Selected',
+                'agent.modal.title': 'AI Agent',
+                'agent.context.label': 'History',
+                'agent.context.sub': '(0 = stateless)',
+                'agent.temperature.label': 'Temperature',
+                'agent.maxtokens.label': 'Max Tokens',
+                'agent.maxtokens.sub': '(0 = no limit)',
+                'agent.allowgroups.label': 'Reply in groups',
+                'agent.structuredoutput.label': 'Structured output (JSON)',
             },
             es: {
                 'tab.dashboard': 'Panel de Control',
                 'tab.agents': 'Agentes IA',
+                'tab.templates': 'Modelos',
                 'device.setup.subtitle': 'Crea o selecciona un device_id, luego abre el login.',
                 'device.setup.field.deviceid': 'Device ID (opcional)',
                 'device.setup.placeholder': 'Dejar vacío para generar automáticamente',
@@ -389,15 +430,24 @@
                 'agent.model.custom.placeholder': 'Escribe el nombre de tu modelo personalizado...',
                 'agent.nodevices': 'No se encontraron dispositivos',
                 'agent.nodevices.hint': 'Ve a la pestaña Dashboard y crea un dispositivo en la sección Device setup antes de configurar agentes.',
+                'agent.device.selected': 'Seleccionado',
+                'agent.modal.title': 'Agente IA',
+                'agent.context.label': 'Historial',
+                'agent.context.sub': '(0 = sin memoria)',
+                'agent.temperature.label': 'Temperatura',
+                'agent.maxtokens.label': 'Max Tokens',
+                'agent.maxtokens.sub': '(0 = sin límite)',
+                'agent.allowgroups.label': 'Responder en grupos',
+                'agent.structuredoutput.label': 'Salida estructurada (JSON)',
             }
         };
 
         const state = Vue.reactive({
-            locale: localStorage.getItem('robit_lang') || 'pt'
+            locale: localStorage.getItem('robit_lang') || 'en'
         });
 
         function t(key) {
-            return (messages[state.locale] || messages['pt'])[key] || key;
+            return (messages[state.locale] || messages['en'])[key] || key;
         }
 
         function setLang(lang) {
@@ -410,6 +460,8 @@
                 const btn = document.getElementById('lang-btn-' + l);
                 if (btn) btn.style.opacity = l === lang ? '1' : '0.45';
             });
+            // Trigger Google Translate for full-page auto-translation
+            window._setGoogleTranslate(lang);
         }
 
         return { state, t, setLang, messages };
@@ -502,6 +554,7 @@
     import DeviceManager from "{{ .AppBasePath }}/components/DeviceManager.js";
     import DeviceWebhook from "{{ .AppBasePath }}/components/DeviceWebhook.js";
     import AgentManager from "{{ .AppBasePath }}/components/AgentManager.js";
+    import AgentTemplates from "{{ .AppBasePath }}/components/AgentTemplates.js";
 
     const showErrorInfo = (message) => {
         $('body').toast({
@@ -531,7 +584,7 @@
             NewsletterList,
             AccountAvatar, AccountUserInfo, AccountPrivacy, AccountChangeAvatar, AccountContact, AccountChangePushName, AccountUserCheck, AccountBusinessProfile,
             ChatPinManager, ChatDisappearingManager, ChatList, ChatMessages,
-            DeviceManager, DeviceWebhook, AgentManager
+            DeviceManager, DeviceWebhook, AgentManager, AgentTemplates
         },
         delimiters: ['[[', ']]'],
         data() {
@@ -681,5 +734,69 @@
         },
     }).mount('#app')
 </script>
+
+<!-- ===== Google Translate: auto-translate entire page when flag is clicked ===== -->
+<div id="google_translate_element" style="display:none"></div>
+<script>
+    // Called by Google after its script loads
+    function googleTranslateElementInit() {
+        new google.translate.TranslateElement({
+            pageLanguage: 'en',
+            includedLanguages: 'pt,es',
+            autoDisplay: false
+        }, 'google_translate_element');
+
+        // MutationObserver: keep suppressing the toolbar even after Google injects it
+        const observer = new MutationObserver(() => {
+            // Force body top back to 0 whenever Google changes it
+            if (document.body.style.top && document.body.style.top !== '0px') {
+                document.body.style.top = '0';
+            }
+            // Hide any injected banner iframes
+            document.querySelectorAll('.goog-te-banner-frame, .skiptranslate').forEach(el => {
+                el.style.setProperty('display', 'none', 'important');
+            });
+        });
+        observer.observe(document.body, { attributes: true, childList: true, subtree: false });
+    }
+
+    // Restore English (original): delete the googtrans cookie and reload
+    function _restoreEnglish() {
+        ['/', window.location.pathname].forEach(path => {
+            document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=' + path;
+            document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=' + path + '; domain=' + window.location.hostname;
+            document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=' + path + '; domain=.' + window.location.hostname;
+        });
+        window.location.reload();
+    }
+
+    // Apply PT or ES via the widget select
+    function _applyGoogleLang(lang) {
+        const select = document.querySelector('.goog-te-combo');
+        if (!select) return false;
+        select.value = lang;
+        select.dispatchEvent(new Event('change'));
+        return true;
+    }
+
+    window._setGoogleTranslate = function(lang) {
+        if (lang === 'en') {
+            // EN = original language — remove translation cookie and reload
+            const cookie = document.cookie.split(';').find(c => c.trim().startsWith('googtrans='));
+            const val = cookie ? cookie.trim().replace('googtrans=', '') : '';
+            if (!val || val === '/en/en') return; // already in English
+            _restoreEnglish();
+            return;
+        }
+        // PT or ES: apply via widget
+        if (!_applyGoogleLang(lang)) {
+            let attempts = 0;
+            const iv = setInterval(() => {
+                if (_applyGoogleLang(lang) || ++attempts > 40) clearInterval(iv);
+            }, 150);
+        }
+    };
+</script>
+<script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async></script>
 </body>
 </html>

@@ -203,17 +203,25 @@ export default {
     },
     mounted() {
         this.fetchDevices();
+        this.$nextTick(() => {
+            $('#help-login-icon').popup({
+                on: 'hover',
+                position: 'bottom right',
+                variation: 'inverted'
+            });
+        });
     },
     template: `
     <div style="position: relative;">
         <div>
-            <div class="ui segment">
+            <div class="ui segment" style="border-radius:12px; border:none; box-shadow:0 1px 4px rgba(0,0,0,.08); padding:24px">
                 <i class="question circle outline icon"
-                   title="How to log in:\n- Step 1: Create a device to get device_id.\n- Step 2: Send X-Device-Id: device_id on REST calls.\n- Step 3: Open Login card to pair (QR or code).\n- WebSocket URL ends in /ws?device_id=<device_id>"
-                   style="position: absolute; top: 10px; right: 10px; font-size: 1.4em; color: #888; cursor: pointer; z-index: 10;">
+                   data-content="1. Create a device | 2. Send X-Device-Id | 3. Open Login to scan QR"
+                   style="position: absolute; top: 15px; right: 15px; font-size: 1.3em; color: #6366f1; cursor: pointer; z-index: 10;"
+                   id="help-login-icon">
                 </i>
                 
-                <div class="ui horizontal divider" style="margin-top: 5px; margin-bottom: 20px;">
+                <div class="ui horizontal divider">
                     Device setup
                 </div>
                 <div style="text-align: center; color: #888; margin-bottom: 15px; font-size: 0.9em;">
@@ -306,7 +314,7 @@ export default {
                                         :title="t('device.webhook.save.title')">
                                     <i class="save icon" style="margin:0"></i>
                                 </button>
-                                <button class="ui mini red basic icon button"
+                                <button class="ui mini red icon button"
                                         v-if="wh(dev.id || dev.device).saved"
                                         :class="{loading: wh(dev.id || dev.device).saving}"
                                         @click="removeWebhook(dev.id || dev.device)"
